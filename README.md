@@ -1,12 +1,17 @@
-# Mesh Triangulations and ICP Matching for Biological Shape Analysis
+# Mesh Triangulations for Biological Shape Analysis
 
 # Part 1: Intro to python and mesh triangulations
 
-This tutorial introduces some core concepts in scientific programming and shape analysis using Python. We'll explore how to represent, manipulate, and compare 2D and 3D shapes using triangulated meshes, with a focus on biological applications. You will learn how to build meshes from scratch, analyze them for correctness, and register two shapes using Iterative Closest Point (ICP) alignment.
-
+This tutorial introduces some core concepts in scientific 
+programming and shape analysis using Python. We'll explore 
+how to represent, manipulate, and compare 2D and 3D shapes 
+using triangulated meshes, with a focus on biological 
+applications. You will learn how to build meshes from scratch, 
+analyze them for correctness, and register two shapes using 
+Iterative Closest Point (ICP) alignment. 
 The notebook is intended for early-stage graduate students with no serious coding experience. 
 
----
+___
 ## 0. Getting Started 
 
 ### 0a. Pycharm
@@ -20,7 +25,7 @@ as the base interpreter during setup (you may need to install it).
 If you are experienced with python, feel free to use a Conda Environment and create a base interpreter 
 from python 3.10. 
 Once your project is open, create a new Python file (e.g., my_script.py), paste in the code from 
-this tutorial, and press the green ▶️ Play button to run it. The bottom of the window will show 
+this tutorial, and press the green Play button to run it. The bottom of the window will show 
 your results in the console. If you see an error like ModuleNotFoundError, click the red light 
 bulb or go to Settings > Python Interpreter to install the missing package 
 (or use conda install <package-name> in the terminal if you are using a Conda environment). 
@@ -101,7 +106,7 @@ from scipy.spatial import cKDTree  # nearest neighbor search
 import copy                     # for duplicating objects safely
 ```
 
----
+___
 
 ## 2. Understanding Triangulations
 
@@ -197,7 +202,7 @@ Try moving it around.
 
 
 
----
+___
 
 ## 3. Mesh Validation
 
@@ -230,7 +235,7 @@ for tri in faces:
         else:
             edge_count[edge] = 1
 
-# Collect edges that appear ≠ 2 times (open or non-manifold edges)
+# Collect edges that appear < 2 or > 2 times (open or non-manifold edges)
 open_edges = []
 for edge in edge_count:
     if edge_count[edge] != 2:
@@ -238,9 +243,9 @@ for edge in edge_count:
 
 # Report
 if len(open_edges) == 0:
-    print("✅ The mesh is closed (watertight).")
+    print("The mesh is closed (watertight).")
 else:
-    print("❌ The mesh is NOT closed. Problematic edges:")
+    print("The mesh is NOT closed. Problematic edges:")
     for edge, count in open_edges:
         print(f"  Edge {edge} appears {count} times")
 ```
@@ -272,9 +277,9 @@ for i, tri in enumerate(faces):
 
 # Report
 if len(inward_facing) == 0:
-    print("✅ All faces are consistently outward-facing.")
+    print("All faces are consistently outward-facing.")
 else:
-    print("❌ Found inward-facing faces at indices:")
+    print("Found inward-facing faces at indices:")
     print(inward_facing)
 ```
 Concept check: This works for a cube. Would it work for a more complex shape? 
@@ -294,7 +299,7 @@ mm.make_normals()
 mm.force_z_normal(direction=1)
 ```
 
----
+___
 
 ## 4. Loading meshes of the midgut from microscopy data
 
@@ -308,7 +313,7 @@ This uses the `pyvista.PolyData` class, which provides convenient 3D plotting.
 ![Microscopy Mesh](figures/04_gut.png)
 *Figure 4: Example mesh from level sets and Poisson disk surface reconstruction.*
 
----
+___
 
 ## 5. Shape Matching Using ICP
 
@@ -318,43 +323,68 @@ point clouds or meshes.
 
 ### 5a. Generate and Offset Meshes
 ```python
+import open3d as o3d
+from organ_geometry import compute_icp_transform_o3d
+from scipy.spatial import cKDTree
+
+# === Create source (ellipsoid) and target (sphere) ===
 sphere = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
 ellipsoid = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
 ellipsoid.vertices = o3d.utility.Vector3dVector(
     np.asarray(ellipsoid.vertices) * np.array([0.8, 1.0, 1.2])
 )
 ellipsoid.translate((0.4, 0.2, -0.1))
+
+# ___ Save originals for "before" visualization ___
+ellipsoid_before = copy.deepcopy(ellipsoid)
+sphere_before = copy.deepcopy(sphere)
 ```
 These are `TriangleMesh` class instances from Open3D. We scale and translate one to simulate biological variation.
 
 ![Generated Meshes](figures/05_beforeICP.png)
-*Figure 5: Ellipsoid and sphere before alignment.*
+*Figure 5: Mismatched ellipsoid and sphere before alignment.*
 
 ### 5b. Run ICP
 ```python
-src_pc = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(np.asarray(ellipsoid.vertices)))
-tgt_pc = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(np.asarray(sphere.vertices)))
+# === Point clouds for ICP ===
+src_pts = np.asarray(ellipsoid.vertices)
+sphere_pts = np.asarray(sphere.vertices)
 
-result = o3d.pipelines.registration.registration_icp(
-    src_pc, tgt_pc, max_correspondence_distance=2.0,
-    init=np.eye(4),
-    estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint()
-)
-ellipsoid_aligned = ellipsoid.transform(result.transformation, inplace=False)
+# ICP transform and application
+T, _ = compute_icp_transform_o3d(src_pts, sphere_pts)
+
+# === Transform ellipsoid ===
+ellipsoid_aligned = ellipsoid.transform(T)
+aligned_pts = np.asarray(ellipsoid_aligned.vertices)
 ```
-Here `result.transformation` is a 4×4 NumPy array representing the optimal rigid transform.
+Here `T` is a 4×4 NumPy array representing the optimal rigid transform.
 
 ### 5c. Compute and Color Distance
 We measure how close the aligned mesh is to the target and color it by error.
 ```python
-sphere_pts = np.asarray(sphere.vertices)
-aligned_pts = np.asarray(ellipsoid_aligned.vertices)
-tree = cKDTree(sphere_pts)
-dists, _ = tree.query(aligned_pts)
+# === Compute nearest-neighbor distances from initial ellipsoid → sphere ===
+tree_sphere = cKDTree(sphere_pts)
+dists0, _ = tree_sphere.query(ellipsoid.vertices)
 
-maxdist = np.max(dists)
-colors = plt.cm.viridis(dists / maxdist)[:, :3]
+# === Compute nearest-neighbor distances from ellipsoid → sphere ===
+tree_sphere = cKDTree(sphere_pts)
+dists, _ = tree_sphere.query(aligned_pts)
+
+maxdist = np.max(np.hstack((dists, dists0)))
+
+# === Normalize and colormap the distances ===
+colors = plt.cm.viridis(dists / maxdist)[:, :3]  # drop alpha channel
 ellipsoid_aligned.vertex_colors = o3d.utility.Vector3dVector(colors)
+
+# === Style sphere as transparent gray ===
+sphere.paint_uniform_color([0.5, 0.5, 0.5])
+sphere.compute_vertex_normals()
+
+# === Style before-view shapes ===
+colors = plt.cm.viridis(dists0 / maxdist)[:, :3]  # drop alpha channel
+ellipsoid_before.vertex_colors = o3d.utility.Vector3dVector(colors)
+sphere_before.paint_uniform_color([0.5, 0.5, 0.5])     # gray
+sphere_before.compute_vertex_normals()
 ```
 The color array is a NumPy array with shape `(N, 3)` for RGB values.
 
@@ -363,14 +393,19 @@ The color array is a NumPy array with shape `(N, 3)` for RGB values.
 
 ### 5d. Visualize Before and After
 ```python
-ellipsoid_before = copy.deepcopy(ellipsoid)
-colors0 = plt.cm.viridis(tree.query(np.asarray(ellipsoid.vertices))[0] / maxdist)[:, :3]
-ellipsoid_before.vertex_colors = o3d.utility.Vector3dVector(colors0)
+# === Visualize Before ICP ===
+o3d.visualization.draw_geometries(
+    [ellipsoid_before, sphere_before],
+    window_name="Before ICP Alignment",
+    mesh_show_back_face=True
+)
 
-sphere.paint_uniform_color([0.5, 0.5, 0.5])
-sphere.compute_vertex_normals()
-o3d.visualization.draw_geometries([ellipsoid_before, sphere], window_name="Before ICP")
-o3d.visualization.draw_geometries([ellipsoid_aligned, sphere], window_name="After ICP")
+# === Visualize After ICP ===
+o3d.visualization.draw_geometries(
+    [ellipsoid_aligned, sphere],
+    window_name="After ICP (Ellipsoid Colored by Distance)",
+    mesh_show_back_face=True
+)
 ```
 
 
@@ -382,7 +417,7 @@ o3d.visualization.draw_geometries([ellipsoid_aligned, sphere], window_name="Afte
 This second part builds on our introductory ICP module to analyze time-series data from a developing embryonic gut in WT conditions and with Myo1C overexpression. We align shapes over time, compare shape dynamics between experimental conditions, and visualize mismatch using point cloud alignment. This module assumes that triangulated mesh files (`.ply`) are already segmented from microscopy and stored in directories corresponding to timepoints.
 
 
----
+___
 
 ## 6. Setup and Parameters
 
@@ -398,40 +433,33 @@ import os
 step = 7          # downsampling step in timepoints
 ssfactor = 10      # spatial subsampling factor for ICP
 conditions = ['wt', 'oe', 'x1', 'x2', 'x3', 'x4']  # comparison pairs
+wt_oe = 'wt'
+outdir = 'results'
 ```
 
----
+___
 
 ## 7. Timepoint Matching with ICP
 
 This section performs pairwise shape comparison using ICP to align all meshes from `dirA` to those in `dirB`. ICP produces a matrix of matching errors, which we smooth and use to infer a time-mapping between the two datasets.
 
 ```python
-for wt_oe in conditions:
-    # Set input directories and whether vertical axis needs flipping
-    if wt_oe == 'wt':
-        dirA, dirB = "wt/20240527/", "wt/20240531/"; flipy = False
-    elif wt_oe == 'oe':
-        dirA, dirB = "oe/20240528/", "oe/20240626/"; flipy = False
-    elif wt_oe == 'x1':
-        ...
+# Collect all PLY files and extract their timepoint numbers
+filesA = natsorted([f for f in os.listdir(dirA) if f.endswith(".ply")])[::step]
+filesB = natsorted([f for f in os.listdir(dirB) if f.endswith(".ply")])[::step]
+tpsA = np.array([extract_tp(f) for f in filesA])
+tpsB = np.array([extract_tp(f) for f in filesB])
 
-    # Collect all PLY files and extract their timepoint numbers
-    filesA = natsorted([f for f in os.listdir(dirA) if f.endswith(".ply")])[::step]
-    filesB = natsorted([f for f in os.listdir(dirB) if f.endswith(".ply")])[::step]
-    tpsA = np.array([extract_tp(f) for f in filesA])
-    tpsB = np.array([extract_tp(f) for f in filesB])
-
-    # Run ICP and match timepoints using dynamic time warping
-    icp_raw = build_icp_cost_matrix(dirA, dirB, ssfactor, step, flipy)
-    icp_smooth = smooth_icp_matrix(icp_raw)
-    AtoB, BtoA = match_timepoints(icp_smooth)
-    path, _, _ = dtw_match(icp_smooth)
-    path = np.array(path)
-    path_tps = np.array([tpsA[path[:,0]], tpsB[path[:,1]]]).T
+# Run ICP and match timepoints using dynamic time warping
+icp_raw = build_icp_cost_matrix(dirA, dirB, ssfactor, step, flipy)
+icp_smooth = smooth_icp_matrix(icp_raw)
+AtoB, BtoA = match_timepoints(icp_smooth)
+path, _, _ = dtw_match(icp_smooth)
+path = np.array(path)
+path_tps = np.array([tpsA[path[:,0]], tpsB[path[:,1]]]).T
 ```
 
----
+___
 
 ## 8. Visualizing Timepoint Matching
 
@@ -450,13 +478,14 @@ plt.show()
 
 
 ![xcomparison](figures/06_icpRMSE_paths.png)
-*Figure: caption *
+*Figure: Smoothed root-mean-squared error measurements after ICP alignment for two different WT datasets.
+The paths represent AtoB alignment (blue), BtoA alignment (orange), and the result of a simple dynamic time warping implementation (purple).*
 
 ![xcomparison](figures/07_icpRMSE_time.png)
-*Figure: caption *
+*Figure: The average root-mean-squared mismatch at each timepoint along the AtoB and BtoA paths show that cross-shape variation rises slightly over time.*
 
 
----
+___
 
 ## 9. Expected ICP Error from Subsampling
 
@@ -469,11 +498,11 @@ expected_rmse_A = np.array(mean_spacing_A) / np.sqrt(2)
 expected_rmse_B = np.array(mean_spacing_B) / np.sqrt(2)
 ```
 ![xcomparison](figures/08_icpRMSE_baseline.png)
-*Figure: caption *
+*Figure: The expected baseline ICP error from finite sampling of the meshes lies far below the measured values.*
 
 
 
----
+___
 
 ## 10. Visualize Aligned Meshes
 
@@ -500,18 +529,44 @@ plotter.show()
 ```
 
 ![xcomparison](figures/06_overlay_024.png)
-*Figure: caption *
+*Figure: Spatial alignment of two WT midguts at an example timepoint.*
 
 
----
+___
 
-## 11. 
+## 11. Measuring the spatial pattern of misalignment between samples
 
 ### 11a. Distance coloring
+Let's now color a midgut mesh by how far away it is from the mesh in the 
+other sample at the matched timepoint.
 
+```python
+# --------------------------------------
+# Color by distance between the two
+# --------------------------------------
+# Load meshes
+tp2view = int(np.median(tpsA))
+tidx = np.argmin(np.abs(tpsA - tp2view))
 
+meshA = pv.read(os.path.join(dirA, filesA[tidx]))
+meshB = pv.read(os.path.join(dirB, filesB[AtoB[tidx]]))
+
+# Subsample point clouds for ICP
+vA = meshA.points[::ssfactor]
+vB = meshB.points[::ssfactor]
+centroid_shift = vB.mean(axis=0) - vA.mean(axis=0)
+meshA_t = meshA.translate(centroid_shift, inplace=False)
+vA += centroid_shift
+
+# ICP transform and application
+T, _ = compute_icp_transform_o3d(vA, vB)
+meshA_t.transform(T, inplace=True)
+
+# Show distance coloring
+color_mesh_by_distance(meshA_t, meshB, transform=None)
+```
 ![xcomparison](figures/06_dist2mesh.png)
-*Figure: caption *
+*Figure: Distance of one mesh from another at an example matched timepoint.*
 
 
 ### 11b. Batch Distance Coloring and Export
@@ -528,11 +583,38 @@ batch_color_by_distance(dirA, dirB, filesA, filesB, AtoB,
                         ssfactor=ssfactor, xyzlim=xyzlim, flipy=flipy, clim=(0, 20))
 ```
 
----
+___
 
 ## 12. Final Export
 
-Save numeric results as `.npy` arrays for further analysis. These files store ICP matrices, expected noise floors, and timepoint mappings.
+We can use a `pandas` dataFrame for saving the result. This is like a table and we save 
+the data as a csv. 
+
+```python
+# Save the results
+icpRawA = icp_raw[np.arange(len(tpsA)), AtoB]
+icpSmoothA = icp_smooth[np.arange(len(tpsA)), AtoB]
+icpRawB = icp_raw[BtoA, np.arange(len(tpsB))]
+icpSmoothB = icp_smooth[BtoA, np.arange(len(tpsB))]
+df_icp = pd.DataFrame({
+    "tpsA": tpsA,
+    "AtoB": AtoB,
+    "icpRawA": icpRawA,
+    "icpSmoothA": icpSmoothA
+})
+
+df_icp_B = pd.DataFrame({
+    "tpsB": tpsB,
+    "BtoA": BtoA,
+    "icpRawB": icpRawB,
+    "icpSmoothB": icpSmoothB
+})
+
+df_icp.to_csv(f"icp_error_AtoB_{wt_oe}_step{step}_ss{ssfactor}.csv", index=False)
+df_icp_B.to_csv(f"icp_error_BtoA_{wt_oe}_step{step}_ss{ssfactor}.csv", index=False)
+```
+
+You can save numeric results as `.npy` arrays for further analysis. These files store ICP matrices, expected noise floors, and timepoint mappings.
 
 ```python
 np.save(f"icp_raw_{wt_oe}.npy", icp_raw)
@@ -542,13 +624,47 @@ np.save(f"expected_rmse_B_{wt_oe}.npy", expected_rmse_B)
 np.save(f"path_{wt_oe}.npy", [path, path_tps])
 ```
 
----
+___
 
 ## 13. Cross-Condition Comparison
 
+Run the above for different conditions `'wt', 'oe', 'x1', 'x2', 'x3', 'x4'`. 
 We compare how ICP errors change across conditions. This can reveal if shape dynamics differ significantly between WT and perturbed embryos.
 
 ```python
+
+for i, wt_oe in enumerate(conditions):
+    if wt_oe == 'wt':
+        # dirA = "HandGFPbynGAL4klar_UASmChCAAXHiFP/20240527/"
+        # dirB = "HandGFPbynGAL4klar_UASmChCAAXHiFP/20240531/"
+        dirA = "wt/20240527/"
+        dirB = "wt/20240531/"
+        flipy = False
+    elif wt_oe == 'oe':
+        dirA = "oe/20240528/"
+        dirB = "oe/20240626/"
+        flipy = False
+    elif wt_oe == 'x1':
+        dirA = "wt/20240527/"
+        dirB = "oe/20240528/"
+        flipy = True
+    elif wt_oe == 'x2':
+        dirA = "wt/20240527/"
+        dirB = "oe/20240626/"
+        flipy = True
+    elif wt_oe == 'x3':
+        dirA = "wt/20240531/"
+        dirB = "oe/20240528/"
+        flipy = True
+    elif wt_oe == 'x4':
+        dirA = "wt/20240531/"
+        dirB = "oe/20240626/"
+        flipy = True
+    ...
+    # All the batch analysis you ran above here
+    ...
+
+
 conds = ['wt', 'oe', 'x1', 'x2', 'x3', 'x4']
 icp_dict = {}
 for cond in conds:
@@ -565,9 +681,9 @@ for d in icp_dict.values():
 wt_err, oe_err = icp_dict['wt']['error'], icp_dict['oe']['error']
 x_errs = np.stack([icp_dict[f"x{i}"]["error"] for i in range(1,5)])
 
-plt.plot(tps, wt_err, 'b.-', label='WT↔WT')
-plt.plot(tps, oe_err, 'r.-', label='OE↔OE')
-plt.plot(tps, x_errs.mean(0), 'k-', label='WT↔OE')
+plt.plot(tps, wt_err, 'b.-', label='WT<->WT')
+plt.plot(tps, oe_err, 'r.-', label='OE<->OE')
+plt.plot(tps, x_errs.mean(0), 'k-', label='WT<->OE')
 plt.fill_between(tps, x_errs.mean(0)-x_errs.std(0), x_errs.mean(0)+x_errs.std(0), color='gray', alpha=0.3)
 plt.title("ICP Matching Error Across Conditions")
 plt.xlabel("Timepoint")
@@ -579,12 +695,12 @@ plt.show()
 ```
 
 ![xcomparison](figures/10_xcomparison.png)
-*Figure: caption *
+*Figure: Comparing the distance between mesh pairs within and across groups (with the Myo1C OE case inverted L<->R).*
 
 This figure provides a quantitative summary of dynamic shape variability under genetic or experimental perturbation. How do you interpret these results?
 
 
----
+___
 
 ## Next Steps
 

@@ -29,7 +29,7 @@ def extract_tp(filename):
     match = re.search(r"mesh_(\d+)_APDV_um\.ply", filename)
     return int(match.group(1)) if match else None
 
-def compute_icp_transform_o3d(source_pts, target_pts, threshold=1.0, init=np.eye(4)):
+def compute_icp_transform_o3d(source_pts, target_pts, threshold=2.0, init=np.eye(4)):
     """
     Compute rigid ICP transform using Open3D (point-to-point).
 

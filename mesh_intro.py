@@ -13,8 +13,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import pyvista as pv
 from mesh import Mesh
-import open3d as o3d
-from scipy.spatial import cKDTree
 import copy
 
 # ----------------------
@@ -223,10 +221,12 @@ print(m)
 m.plot(show_edges=True)
 
 
-
 # ----------------------
 # STEP 3b: Aligning 3D Meshes
 # ----------------------
+import open3d as o3d
+from organ_geometry import compute_icp_transform_o3d
+from scipy.spatial import cKDTree
 
 # === Create source (ellipsoid) and target (sphere) ===
 sphere = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
@@ -242,22 +242,14 @@ sphere_before = copy.deepcopy(sphere)
 
 # === Point clouds for ICP ===
 src_pts = np.asarray(ellipsoid.vertices)
-tgt_pts = np.asarray(sphere.vertices)
+sphere_pts = np.asarray(sphere.vertices)
 
-src_pc = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(src_pts))
-tgt_pc = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(tgt_pts))
-
-# === Run ICP ===
-result = o3d.pipelines.registration.registration_icp(
-    src_pc, tgt_pc, max_correspondence_distance=2.0,
-    init=np.eye(4),
-    estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint()
-)
+# ICP transform and application
+T, _ = compute_icp_transform_o3d(src_pts, sphere_pts)
 
 # === Transform ellipsoid ===
-ellipsoid_aligned = ellipsoid.transform(result.transformation)
+ellipsoid_aligned = ellipsoid.transform(T)
 aligned_pts = np.asarray(ellipsoid_aligned.vertices)
-sphere_pts = np.asarray(sphere.vertices)
 
 # === Compute nearest-neighbor distances from initial ellipsoid → sphere ===
 tree_sphere = cKDTree(sphere_pts)
