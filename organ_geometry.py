@@ -378,7 +378,7 @@ def mean_point_spacing(points):
 # ----------------------------------
 
 def batch_icp_overlay(dirA, dirB, filesA, filesB, AtoB, outdir="icp_frames", ssfactor=10,
-                      xyzlim=None, flipy=False):
+                      xyzlim=None, flipy=False, Alabel="A (transformed)", Blabel="B"):
     """
     Save individual PNG images showing A→B matched meshes with ICP transform applied to A.
 
@@ -427,8 +427,8 @@ def batch_icp_overlay(dirA, dirB, filesA, filesB, AtoB, outdir="icp_frames", ssf
         # Plot
         plotter = pv.Plotter(off_screen=True)
         plotter.set_background("white")
-        plotter.add_mesh(meshA_t, color="crimson", opacity=0.6, label="A (transformed)")
-        plotter.add_mesh(meshB, color="dodgerblue", opacity=0.6, label="B")
+        plotter.add_mesh(meshA_t, color="crimson", opacity=0.6, label=Alabel)
+        plotter.add_mesh(meshB, color="dodgerblue", opacity=0.6, label=Blabel)
 
         if xyzlim is not None:
             xlim, ylim, zlim = xyzlim
@@ -610,7 +610,7 @@ def batch_color_by_distance(dirA, dirB, filesA, filesB, AtoB,
             plotter = pv.Plotter(off_screen=True)
             plotter.set_background("white")
             plotter.add_mesh(meshA_t, scalars="distance", cmap=colormap,
-                             clim=clim, show_scalar_bar=False)
+                             clim=clim, show_scalar_bar=True)
             plotter.add_mesh(meshB, color="gray", opacity=0.3)
 
             if xyzlim is not None:
@@ -619,7 +619,7 @@ def batch_color_by_distance(dirA, dirB, filesA, filesB, AtoB,
                 plotter.add_mesh(bounds_box, opacity=0.0)
 
             # plotter.camera_position = [(400, -400, 400*np.sqrt(3)/2), (0, 0, 0), (0, 0, 1)]
-            plotter.add_title(f"A[{i}] colored by distance to B[{j}]")
+            plotter.add_title(f"{dirA}[{i}] - {dirB}[{j}]")
             png_path = os.path.join(outdir, f"meshA_{i:03d}_colored.png")
 
             plotter.screenshot(png_path)

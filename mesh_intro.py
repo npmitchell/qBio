@@ -13,6 +13,9 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import pyvista as pv
 from mesh import Mesh
+import open3d as o3d
+from scipy.spatial import cKDTree
+import copy
 
 # ----------------------
 # STEP 2: Understanding Triangulations
@@ -26,12 +29,32 @@ x = np.array([0, 1, 0])
 y = np.array([0, 0, 1])
 faces = [[0, 1, 2]]
 
-# plt.figure()
-# plt.triplot(x, y, faces, color='black')
-# plt.plot(x, y, 'o', color='blue')
-# plt.title('A Single Triangle')
-# plt.axis('equal')
-# plt.show()
+# Plotting in python: use matplotlib.pyplot
+# Let's make lines that connect the vertices.
+# Concept check: Why do we have to index into faces?
+plt.figure()
+plt.plot(x[faces[0]], y[faces[0]], '-')
+plt.title('A Single Triangle')
+plt.axis('equal')
+plt.show()
+
+# Coding concept check: why is there a missing triangle?
+
+# Go all the way around!
+face = faces[0]
+plt.figure()
+plt.plot(np.append(x[face], x[face[0]]), np.append(y[face], y[face[0]]), '-o')
+plt.title('A Single Triangle')
+plt.axis('equal')
+plt.show()
+
+
+# We can also do this with triplot()
+plt.triplot(x, y, faces, color='black')
+plt.plot(x, y, 'o', color='blue')
+plt.title('A Single Triangle plotted with triplot')
+plt.axis('equal')
+plt.show()
 
 # ----------------------
 # 2b: square
@@ -41,12 +64,12 @@ x = np.array([0, 1, 0, 1])
 y = np.array([0, 0, 1, 1])
 faces = [[0, 1, 2], [1, 3, 2]]
 
-# plt.figure()
-# plt.triplot(x, y, faces, color='black')
-# plt.plot(x, y, 'o', color='blue')
-# plt.title('2D Triangulation of a Square')
-# plt.axis('equal')
-# plt.show()
+plt.figure()
+plt.triplot(x, y, faces, color='black')
+plt.plot(x, y, 'o', color='blue')
+plt.title('2D Triangulation of a Square')
+plt.axis('equal')
+plt.show()
 
 
 # ----------------------
@@ -110,6 +133,7 @@ plt.show()
 
 # ----------------------
 # ADVANCED: Check if mesh is watertight
+# This demonstrates the python object called a dictionary
 # ----------------------
 # Initialize an empty dictionary to count edges
 edge_count = {}
@@ -129,6 +153,8 @@ for tri in faces:
             edge_count[edge] += 1
         else:
             edge_count[edge] = 1
+
+# Concept check: why did we use min() and max() in the definition of edges?
 
 # Collect edges that appear ≠ 2 times (open or non-manifold edges)
 open_edges = []
@@ -192,6 +218,81 @@ mm.force_z_normal(direction=1)
 # ----------------------
 # STEP 3: Working with 3D Meshes
 # ----------------------
-m = pv.read('./HandGFPbynGAL4klar_UASmChCAAXHiFP/20240527/mesh_000000_APDV_um.ply')
+m = pv.read('./wt/20240527/mesh_000000_APDV_um.ply')
 print(m)
 m.plot(show_edges=True)
+
+
+
+# ----------------------
+# STEP 3b: Aligning 3D Meshes
+# ----------------------
+
+# === Create source (ellipsoid) and target (sphere) ===
+sphere = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
+ellipsoid = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
+ellipsoid.vertices = o3d.utility.Vector3dVector(
+    np.asarray(ellipsoid.vertices) * np.array([0.8, 1.0, 1.2])
+)
+ellipsoid.translate((0.4, 0.2, -0.1))
+
+# --- Save originals for "before" visualization ---
+ellipsoid_before = copy.deepcopy(ellipsoid)
+sphere_before = copy.deepcopy(sphere)
+
+# === Point clouds for ICP ===
+src_pts = np.asarray(ellipsoid.vertices)
+tgt_pts = np.asarray(sphere.vertices)
+
+src_pc = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(src_pts))
+tgt_pc = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(tgt_pts))
+
+# === Run ICP ===
+result = o3d.pipelines.registration.registration_icp(
+    src_pc, tgt_pc, max_correspondence_distance=2.0,
+    init=np.eye(4),
+    estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint()
+)
+
+# === Transform ellipsoid ===
+ellipsoid_aligned = ellipsoid.transform(result.transformation)
+aligned_pts = np.asarray(ellipsoid_aligned.vertices)
+sphere_pts = np.asarray(sphere.vertices)
+
+# === Compute nearest-neighbor distances from initial ellipsoid → sphere ===
+tree_sphere = cKDTree(sphere_pts)
+dists0, _ = tree_sphere.query(ellipsoid.vertices)
+
+# === Compute nearest-neighbor distances from ellipsoid → sphere ===
+tree_sphere = cKDTree(sphere_pts)
+dists, _ = tree_sphere.query(aligned_pts)
+
+maxdist = np.max(np.hstack((dists, dists0)))
+
+# === Normalize and colormap the distances ===
+colors = plt.cm.viridis(dists / maxdist)[:, :3]  # drop alpha channel
+ellipsoid_aligned.vertex_colors = o3d.utility.Vector3dVector(colors)
+
+# === Style sphere as transparent gray ===
+sphere.paint_uniform_color([0.5, 0.5, 0.5])
+sphere.compute_vertex_normals()
+
+# === Style before-view shapes ===
+colors = plt.cm.viridis(dists0 / maxdist)[:, :3]  # drop alpha channel
+ellipsoid_before.vertex_colors = o3d.utility.Vector3dVector(colors)
+sphere_before.paint_uniform_color([0.5, 0.5, 0.5])     # gray
+sphere_before.compute_vertex_normals()
+
+# === Visualize Before ICP ===
+o3d.visualization.draw_geometries(
+    [ellipsoid_before, sphere_before],
+    window_name="Before ICP Alignment",
+    mesh_show_back_face=True
+)
+
+# === Visualize After ICP ===
+o3d.visualization.draw_geometries(
+    [ellipsoid_aligned, sphere],
+    window_name="After ICP (Ellipsoid Colored by Distance)",
+    mesh_show_back_face=True
+)

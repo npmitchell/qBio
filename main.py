@@ -3,9 +3,10 @@ import pandas as pd
 
 # Parameters
 wt_oe = 'oe' # 'wt' 'oe' 'x1' 'x2' 'x3' 'x4'
-step = 7
-ssfactor = 10
+step = 3
+ssfactor = 5
 dt = 2
+outdir = './results'
 
 conditions = ['wt', 'oe', 'x1', 'x2', 'x3', 'x4']
 
@@ -65,45 +66,45 @@ for i, wt_oe in enumerate(conditions):
     # -----------------------------------------------
     # Plot the result on the RMSE (ICP mismatch) heatmap
     # -----------------------------------------------
-    # plt.figure()
-    # plt.imshow(icp_smooth, cmap='inferno')
-    # plt.plot(path[:,1], path[:, 0], '.-', lw=2, color='tab:purple')
-    # plt.plot(AtoB, np.arange(len(tpsA)), '.-', lw=2, color='tab:blue')
-    # plt.plot(np.arange(len(tpsB)), BtoA, '.-', lw=2, color='tab:orange')
-    # plt.title("PCA-Smoothed Timepoint Matching")
-    # plt.xlabel("Time B")
-    # plt.ylabel("Time A")
-    # plt.colorbar(label="ICP Error")
-    # plt.axis('equal')
-    # plt.tight_layout()
-    # plt.show()
+    plt.figure()
+    plt.imshow(icp_smooth, cmap='inferno')
+    plt.plot(path[:,1], path[:, 0], '.-', lw=2, color='tab:purple')
+    plt.plot(AtoB, np.arange(len(tpsA)), '.-', lw=2, color='tab:blue')
+    plt.plot(np.arange(len(tpsB)), BtoA, '.-', lw=2, color='tab:orange')
+    plt.title("PCA-Smoothed Timepoint Matching")
+    plt.xlabel("Time B")
+    plt.ylabel("Time A")
+    plt.colorbar(label="ICP Error")
+    plt.axis('equal')
+    plt.tight_layout()
+    plt.show()
 
 
     # -----------------------------------------------
     # Plot raw ICP error at matched A→B and B→A pairs
     # -----------------------------------------------
-    # # Plot the result
-    # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
-    #
-    # # === Subplot 1: A→B ===
-    # ax1.plot(tpsA, icp_raw[np.arange(len(tpsA)), AtoB], 'o--', label='A→B raw', color='tab:blue')
-    # ax1.plot(tpsA, icp_smooth[np.arange(len(tpsA)), AtoB], 'o-', label='A→B smoothed', color='tab:blue')
-    # # ax1.plot(path_tps[:, 0], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (A→B)', color='tab:blue')
-    # ax1.set_xlabel("Timepoint A")
-    # ax1.set_ylabel("ICP Error")
-    # ax1.set_title("A→B Matching")
-    # ax1.grid(True)
-    # ax1.legend()
-    #
-    # # === Subplot 2: B→A ===
-    # ax2.plot(tpsB, icp_raw[BtoA, np.arange(len(tpsB))], 'o--', label='B→A raw', color='tab:orange')
-    # ax2.plot(tpsB, icp_smooth[BtoA, np.arange(len(tpsB))], 'o-', label='B→A smoothed', color='tab:orange')
-    # # ax2.plot(path_tps[:, 1], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (B→A)', color='tab:orange')
-    # ax2.set_xlabel("Timepoint B")
-    # ax2.set_title("B→A Matching")
-    # ax2.grid(True)
-    # ax2.legend()
-    # plt.show()
+    # Plot the result
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+
+    # === Subplot 1: A→B ===
+    ax1.plot(tpsA, icp_raw[np.arange(len(tpsA)), AtoB], 'o--', label='A→B raw', color='tab:blue')
+    ax1.plot(tpsA, icp_smooth[np.arange(len(tpsA)), AtoB], 'o-', label='A→B smoothed', color='tab:blue')
+    # ax1.plot(path_tps[:, 0], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (A→B)', color='tab:blue')
+    ax1.set_xlabel("Timepoint A")
+    ax1.set_ylabel("ICP Error")
+    ax1.set_title("A→B Matching")
+    ax1.grid(True)
+    ax1.legend()
+
+    # === Subplot 2: B→A ===
+    ax2.plot(tpsB, icp_raw[BtoA, np.arange(len(tpsB))], 'o--', label='B→A raw', color='tab:orange')
+    ax2.plot(tpsB, icp_smooth[BtoA, np.arange(len(tpsB))], 'o-', label='B→A smoothed', color='tab:orange')
+    # ax2.plot(path_tps[:, 1], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (B→A)', color='tab:orange')
+    ax2.set_xlabel("Timepoint B")
+    ax2.set_title("B→A Matching")
+    ax2.grid(True)
+    ax2.legend()
+    plt.show()
 
 
     # ------------------------------------------------
@@ -130,66 +131,67 @@ for i, wt_oe in enumerate(conditions):
     expected_rmse_B = mean_spacing_B / np.sqrt(2)
 
     # Plot the result
-    # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
-    #
-    # # === Subplot 1: A→B ===
-    # ax1.plot(tpsA, icp_raw[np.arange(len(tpsA)), AtoB], 'o--', label='A→B raw', color='tab:blue')
-    # ax1.plot(tpsA, icp_smooth[np.arange(len(tpsA)), AtoB], 'o-', label='A→B smoothed', color='tab:blue')
-    # ax1.plot(tpsA, expected_rmse_A, '.--', label='B→A baseline', color='tab:blue')
-    # # ax1.plot(path_tps[:, 0], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (A→B)', color='tab:blue')
-    # ax1.set_xlabel("Timepoint A")
-    # ax1.set_ylabel("ICP Error")
-    # ax1.set_title("A→B Matching")
-    # ax1.grid(True)
-    # ax1.legend()
-    #
-    # # === Subplot 2: B→A ===
-    # ax2.plot(tpsB, icp_raw[BtoA, np.arange(len(tpsB))], 'o--', label='B→A raw', color='tab:orange')
-    # ax2.plot(tpsB, icp_smooth[BtoA, np.arange(len(tpsB))], 'o-', label='B→A smoothed', color='tab:orange')
-    # ax2.plot(tpsB, expected_rmse_B, '.--', label='A→B baseline', color='tab:orange')
-    # # ax2.plot(path_tps[:, 1], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (B→A)', color='tab:orange')
-    # ax2.set_xlabel("Timepoint B")
-    # ax2.set_title("B→A Matching")
-    # ax2.grid(True)
-    # ax2.legend()
-    # # plt.show()
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+
+    # === Subplot 1: A→B ===
+    ax1.plot(tpsA, icp_raw[np.arange(len(tpsA)), AtoB], 'o--', label='A→B raw', color='tab:blue')
+    ax1.plot(tpsA, icp_smooth[np.arange(len(tpsA)), AtoB], 'o-', label='A→B smoothed', color='tab:blue')
+    ax1.plot(tpsA, expected_rmse_A, '.--', label='B→A baseline', color='tab:blue')
+    # ax1.plot(path_tps[:, 0], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (A→B)', color='tab:blue')
+    ax1.set_xlabel("Timepoint A")
+    ax1.set_ylabel("ICP Error")
+    ax1.set_title("A→B Matching")
+    ax1.grid(True)
+    ax1.legend()
+
+    # === Subplot 2: B→A ===
+    ax2.plot(tpsB, icp_raw[BtoA, np.arange(len(tpsB))], 'o--', label='B→A raw', color='tab:orange')
+    ax2.plot(tpsB, icp_smooth[BtoA, np.arange(len(tpsB))], 'o-', label='B→A smoothed', color='tab:orange')
+    ax2.plot(tpsB, expected_rmse_B, '.--', label='A→B baseline', color='tab:orange')
+    # ax2.plot(path_tps[:, 1], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (B→A)', color='tab:orange')
+    ax2.set_xlabel("Timepoint B")
+    ax2.set_title("B→A Matching")
+    ax2.grid(True)
+    ax2.legend()
+    # plt.show()
 
     # --------------------------------------
     # Visualize the overlay between two timepoints
     # --------------------------------------
     # Load meshes
-    # tp2view = int(np.median(tpsA))
-    # tidx = np.argmin(np.abs(tpsA - tp2view))
-    #
-    # meshA = pv.read(os.path.join(dirA, filesA[tidx]))
-    # meshB = pv.read(os.path.join(dirB, filesB[AtoB[tidx]]))
-    #
-    # # Subsample point clouds for ICP
-    # vA = meshA.points[::ssfactor]
-    # vB = meshB.points[::ssfactor]
-    # centroid_shift = vB.mean(axis=0) - vA.mean(axis=0)
-    # meshA_t = meshA.translate(centroid_shift, inplace=False)
-    # vA += centroid_shift
-    #
-    # # ICP transform and application
-    # T, _ = compute_icp_transform_o3d(vA, vB)
-    # meshA_t.transform(T, inplace=True)
-    #
-    # # Plot
-    # plotter = pv.Plotter()
-    # plotter.set_background("white")
-    # plotter.add_mesh(meshA_t, color="crimson", opacity=0.6, label="A (transformed)")
-    # plotter.add_mesh(meshB, color="dodgerblue", opacity=0.6, label="B")
-    # plotter.add_legend()
-    # # plotter.show(interactive_update=True)
-    # plotter.close()
+    tp2view = int(np.median(tpsA))
+    tidx = np.argmin(np.abs(tpsA - tp2view))
+
+    meshA = pv.read(os.path.join(dirA, filesA[tidx]))
+    meshB = pv.read(os.path.join(dirB, filesB[AtoB[tidx]]))
+
+    # Subsample point clouds for ICP
+    vA = meshA.points[::ssfactor]
+    vB = meshB.points[::ssfactor]
+    centroid_shift = vB.mean(axis=0) - vA.mean(axis=0)
+    meshA_t = meshA.translate(centroid_shift, inplace=False)
+    vA += centroid_shift
+
+    # ICP transform and application
+    T, _ = compute_icp_transform_o3d(vA, vB)
+    meshA_t.transform(T, inplace=True)
+
+    # Plot
+    plotter = pv.Plotter()
+    plotter.set_background("white")
+    plotter.add_mesh(meshA_t, color="crimson", opacity=0.6, label="A (transformed)")
+    plotter.add_mesh(meshB, color="dodgerblue", opacity=0.6, label="B")
+    plotter.add_legend()
+    plotter.show(interactive_update=True)
+    plotter.close()
 
     # --------------------------------------
     # Batch overlays
     # --------------------------------------
     xyzlim = compute_global_bounds(dirA, dirB, filesA, filesB)
     batch_icp_overlay(dirA, dirB, filesA, filesB, AtoB, outdir="icp_overlay_"+wt_oe,
-                      ssfactor=ssfactor, xyzlim=xyzlim, flipy=flipy)
+                      ssfactor=ssfactor, xyzlim=xyzlim, flipy=flipy,
+                      Alabel=dirA, Blabel=dirB)
 
     # --------------------------------------
     # Color by distance between the two
@@ -231,17 +233,18 @@ for i, wt_oe in enumerate(conditions):
     # --------------------------------------
     smoothed_curve = pca_smooth_correspondences(tpsA, tpsB, AtoB, BtoA)
 
-    # plt.figure()
-    # plt.imshow(icp_smooth, cmap='inferno', extent=[tpsB[0], tpsB[-1], tpsA[0], tpsA[-1]],
-    #            origin='lower', aspect='auto')
-    # plt.plot(smoothed_curve[:, 1], smoothed_curve[:, 0], 'r.-', lw=2)
-    # plt.title("PCA-Smoothed Timepoint Matching")
-    # plt.xlabel("Time B")
-    # plt.ylabel("Time A")
-    # plt.colorbar(label="ICP Error")
-    # plt.axis('equal')
-    # plt.tight_layout()
-    # plt.show()
+    plt.figure()
+    plt.imshow(icp_smooth, cmap='inferno', extent=[tpsB[0], tpsB[-1], tpsA[0], tpsA[-1]],
+               origin='lower', aspect='auto')
+    plt.plot(smoothed_curve[:, 1], smoothed_curve[:, 0], 'r.-', lw=2)
+    plt.title("PCA-Smoothed Timepoint Matching")
+    plt.xlabel("Time B")
+    plt.ylabel("Time A")
+    plt.colorbar(label="ICP Error")
+    plt.axis('equal')
+    plt.tight_layout()
+    plt.show()
+    plt.close()
 
     # Save the results
     icpRawA = icp_raw[np.arange(len(tpsA)), AtoB]
@@ -265,6 +268,11 @@ for i, wt_oe in enumerate(conditions):
     df_icp.to_csv(f"icp_error_AtoB_{wt_oe}_step{step}_ss{ssfactor}.csv", index=False)
     df_icp_B.to_csv(f"icp_error_BtoA_{wt_oe}_step{step}_ss{ssfactor}.csv", index=False)
 
+    np.save(f"icp_raw_{wt_oe}_step{step}_ss{ssfactor}.npy", icp_raw)
+    np.save(f"icp_smooth_{wt_oe}_step{step}_ss{ssfactor}.npy", icp_smooth)
+    np.save(f"expected_rmse_A_{wt_oe}_step{step}_ss{ssfactor}.npy", expected_rmse_A)
+    np.save(f"expected_rmse_B_{wt_oe}_step{step}_ss{ssfactor}.npy", expected_rmse_B)
+    np.save(f"path_{wt_oe}_step{step}_ss{ssfactor}.npy", [path, path_tps])
 
 # ------------------------------------------------------------
 # Compare difference between WT and OE against
@@ -309,9 +317,9 @@ plt.plot(tps*dt, wt_err, 'b.-', label="WT↔WT")
 plt.plot(tps*dt, oe_err, 'r.-', label="OE↔OE")
 plt.plot(tps*dt, x_mean, 'k-', label="WT↔OE (mean x1–x4)")
 plt.fill_between(tps*dt, x_mean - x_std, x_mean + x_std, color='gray', alpha=0.3, label="WT↔OE ± std")
-plt.xlabel("Timepoint")
-plt.ylabel("ICP Error (smoothed)")
-plt.title("Comparison of Within- vs Between-Group ICP Error")
+plt.xlabel("reference time [min]")
+plt.ylabel("ICP RMSE (smoothed)")
+plt.title("Within- vs cross-ensemble ICP RMSE")
 plt.grid(True)
 plt.legend()
 plt.tight_layout()

@@ -1,0 +1,14 @@
+name: qBio
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - matplotlib
+  - scipy
+  - pyvista
+  - open3d
+  - pip
+  - pip:
+      - meshio  # if you use meshio-based loaders/savers
