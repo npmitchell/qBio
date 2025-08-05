@@ -94,7 +94,14 @@ Each of these libraries is a module.
 Note that you can write your own modules and import them, as long as they are placed somewhere that python can find them (ex in the current working directory or installed globally).
 As an example, we import the Mesh class from mesh.py, which is included in this tutorial.
 
-If any of these other statements return an error, simply import the required module into your virtual environment.
+If any of these other statements return an error, simply install the required module into your virtual environment in PyCharm (or on terminal if you have a Conda environment).
+
+If we `import moduleName`, then we can access functions or classes defined in `moduleName` by calling `moduleName.functionName(args)` or `moduleName.className()`. 
+
+If we `import moduleName as localName`, then we can access functions or classes defined in `moduleName` by calling `localName.functionName(args)` or `localName.className()`. 
+
+If we say `from moduleName import functionName/className`, then we can access the desired function or class by calling `functionName(args)` or `className()`. 
+
 ```python
 import numpy as np              # powerful N-dimensional array operations
 import matplotlib.pyplot as plt # for 2D and 3D plotting
@@ -134,7 +141,7 @@ plt.title('A Single Triangle')
 plt.axis('equal')
 plt.show()
 ```
-Coding concept check: why is there a missing triangle in the plot?
+Coding concept check: why is there a missing edge in the plot?
 ```python
 # Go all the way around!
 face = faces[0]
@@ -252,8 +259,12 @@ else:
 Concept check: why did we use min() and max() in the definition of edges?
 
 
-### 3b. Face Orientation
-Use dot products to check if face normals point away from the mesh center.
+### 3b. Face Orientation (somewhat advanced)
+Recall that the order of a triangle matters: the order of vertex indices listed for a triangle determines which way is "in" or "out" in 3D.
+Here we do a simple check for whether the faces of the cube are pointing the right way. 
+Let's use dot products to check if face normals point away from the mesh center. A dot product measures the amount of alignment between two vectors. If the face's "normal" direction (ie its "outward" direction) is pointing in a similar direction as the vector pointing from the origin to the face, then the dot product will be positive. If the face is oriented the wrong way, then the dot product is negative. 
+
+
 ```python
 
 # Compute cube center
@@ -282,14 +293,13 @@ else:
     print("Found inward-facing faces at indices:")
     print(inward_facing)
 ```
-Concept check: This works for a cube. Would it work for a more complex shape? 
+Concept check: This works for a cube. Would it work for a more complex shape? Provide a simple example that fails, and verify this with code.
 
 
 ## 3c. Advanced checks
-Challenge: how does this check work? At the very least, make sure you can follow 
+Challenge: how does this check work? At the least, make sure you can follow 
 the structure: we use the `Mesh` class imported from mesh.py. The class has a *method* called `is_closed`. 
-A method is like a function that belongs to a class. The class instance `mm` executes the method `is_closed()`, 
-effectively asking itself, 'Am I closed?'
+A method is like a function that belongs to a class. The class instance `mm` executes the method `is_closed()` when we say `mm.is_closed()`, effectively asking itself, 'Am I closed?'
 ```python
 mm = Mesh(vertices, faces)
 mm.is_closed()
@@ -301,14 +311,20 @@ mm.force_z_normal(direction=1)
 
 ___
 
-## 4. Loading meshes of the midgut from microscopy data
+## 4. Loading meshes from microscopy data
 
-We can now load real 3D triangle meshes — for example, segmentations from microscopy.
+We can now load some experimentally-derived 3D triangle meshes — for example, segmentations from a microscopy dataset of the *Drosophila* gut.
+We've saved the mesh as a `.ply` file. Take a look at the PLY file in a text editor. 
+Note that all the information about the contents are in the header. First the vertices are listed, then the faces. The header declares what information is in the file, how many vertices, how many faces, etc.
+
+
+Below we use the `pyvista.PolyData` class to provide convenient 3D plotting for meshes. You can use the more standard `matplotlib.pyplot` functions too, but they are going to be laggy for meshes of this size (or if you don't have enough RAM, they will make your python console freeze up).
+
+
 ```python
 m = pv.read('./wt/20240527/mesh_000000_APDV_um.ply')  # returns a PyVista mesh object
 m.plot(show_edges=True)
 ```
-This uses the `pyvista.PolyData` class, which provides convenient 3D plotting.
 
 ![Microscopy Mesh](figures/04_gut.png)
 *Figure 4: Example mesh from level sets and Poisson disk surface reconstruction.*
@@ -317,11 +333,16 @@ ___
 
 ## 5. Shape Matching Using ICP
 
-The **Iterative Closest Point (ICP)** algorithm finds the rigid transform (rotation + translation) that best aligns two 
-point clouds or meshes.
+The **Iterative Closest Point (ICP)** algorithm finds the rigid transform (rotation + translation) that best aligns two point clouds or meshes.
 
 
 ### 5a. Generate and Offset Meshes
+
+Let's first make a couple of meshes-- one sphere and one ellipsoid. 
+We then translate the ellipsoid a bit so that we have to do some work to align it back up with the sphere. 
+These are `TriangleMesh` class instances from Open3D, and here we scale and translate one to simulate biological variation.
+
+
 ```python
 import open3d as o3d
 from organ_geometry import compute_icp_transform_o3d
@@ -334,12 +355,14 @@ ellipsoid.vertices = o3d.utility.Vector3dVector(
     np.asarray(ellipsoid.vertices) * np.array([0.8, 1.0, 1.2])
 )
 ellipsoid.translate((0.4, 0.2, -0.1))
+```
 
+At this point, before we go on, let's make a copy of the current objects `sphere` and `ellipsoid`. This is needed since if we do operations on these objects, they will change. That is, these are *mutable* objects, just like a list is mutable in python.
+```python
 # ___ Save originals for "before" visualization ___
 ellipsoid_before = copy.deepcopy(ellipsoid)
 sphere_before = copy.deepcopy(sphere)
 ```
-These are `TriangleMesh` class instances from Open3D. We scale and translate one to simulate biological variation.
 
 ![Generated Meshes](figures/05_beforeICP.png)
 *Figure 5: Mismatched ellipsoid and sphere before alignment.*
@@ -358,9 +381,10 @@ ellipsoid_aligned = ellipsoid.transform(T)
 aligned_pts = np.asarray(ellipsoid_aligned.vertices)
 ```
 Here `T` is a 4×4 NumPy array representing the optimal rigid transform.
+Advanced concept check: how are data stored inside `T`? Hint: There is a matrix encoding rotations and scaling, but also a translation (dx, dy, dz). Which columns/rows are which? 
 
 ### 5c. Compute and Color Distance
-We measure how close the aligned mesh is to the target and color it by error.
+We measure how close the aligned mesh is to the target and color it by the distance from the nearest matching point.
 ```python
 # === Compute nearest-neighbor distances from initial ellipsoid → sphere ===
 tree_sphere = cKDTree(sphere_pts)
@@ -407,6 +431,7 @@ o3d.visualization.draw_geometries(
     mesh_show_back_face=True
 )
 ```
+How does your alignment look?
 
 
 
@@ -630,6 +655,8 @@ ___
 
 Run the above for different conditions `'wt', 'oe', 'x1', 'x2', 'x3', 'x4'`. 
 We compare how ICP errors change across conditions. This can reveal if shape dynamics differ significantly between WT and perturbed embryos.
+
+Note that whitespace matters in python. Just as delimiters like spaces or punctuation in English can completely change the meaning of a sentence — for example, “Let’s eat, Grandma” vs. “Let’s eat Grandma” — Python relies on whitespace, punctuation, and syntax to interpret code correctly.
 
 ```python
 
