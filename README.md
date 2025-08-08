@@ -16,7 +16,8 @@ ___
 
 ### 0a. Pycharm
 To begin working with Python code, we recommend using PyCharm, a free, user-friendly code editor. 
-First, download PyCharm Community Edition and install it on your computer. When you open PyCharm 
+First, download PyCharm Community Edition and install it on your computer from 
+`https://www.jetbrains.com/pycharm/download/other.html` When you open PyCharm 
 for the first time, create a new project: choose a folder where your code will live, and then 
 configure a Python interpreter. You must select or create an interpreter that uses Python 3.10 — 
 this version is required for the tutorials in this course. If no interpreter is available, click 
