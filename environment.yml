@@ -9,6 +9,9 @@ dependencies:
   - scipy
   - pyvista
   - open3d
+  - scikit-learn
+  - natsort
+  - pandas
   - pip
   - pip:
       - meshio  # if you use meshio-based loaders/savers

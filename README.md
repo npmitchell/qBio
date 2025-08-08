@@ -123,7 +123,24 @@ A mesh consists of:
 - a **list of vertices** (points in 2D or 3D space, stored as a NumPy array)
 - a **list of faces** (which connect 3 or more vertex indices to form polygons)
 
-### 2a. A Single Triangle
+### 2a. An example triangulation: the Stanford Bunny
+
+Let's first learn by example. We read in a PLY file of the Stanford Bunny, provided by the Stanford Computer Graphics Laboratory.
+```python
+m = pv.read('bunny.ply')
+print(m)
+m.plot(show_edges=True)
+```
+
+![Stanford Bunny](figures/00_bunny.png)
+*Figure 1: The Stanford bunny as a mesh triangulation, composed of vertices and faces.*
+ 
+How is this defined? It has vertices and faces. A face connects three vertices. 
+Because the faces are triangles, this is a *triangulation*.
+
+Open up `bunny.ply` in a text editor. See how it has vertices and faces defined. 
+
+### 2b. A Single Triangle
 This is the simplest mesh, made of 3 points and 1 triangle.
 Here `x` and `y` are NumPy arrays and `faces` is a Python list of vertex index triplets.
 
@@ -137,7 +154,7 @@ faces = [[0, 1, 2]]             # one triangle made from those three points
 # Concept check: Why do we have to index into faces?
 plt.figure()
 plt.plot(x[faces[0]], y[faces[0]], '-')
-plt.title('A Single Triangle')
+plt.title('single triangle...almost')
 plt.axis('equal')
 plt.show()
 ```
@@ -166,9 +183,9 @@ plt.show()
 ```
 
 ![Single Triangle](figures/01_triangle.png)
-*Figure 1: A single triangle plotted using `triplot`.*
+*Figure 2: A single triangle plotted using `triplot`.*
 
-### 2b. A Triangulated Square
+### 2c. A Triangulated Square
 We build a square from two triangles.
 ```python
 x = np.array([0, 1, 0, 1])      # 4 corner points of a square
@@ -186,19 +203,45 @@ plt.show()
 ![Triangulated Square](figures/02_square.png)
 *Figure 2: A square composed of two triangles.*
 
-### 2c. A Triangulated Cube in 3D
+### 2d. A Triangulated Cube in 3D
 Now we move to 3D, building a cube from 8 corner points and 12 triangles.
 Can you build this yourself?
 
 ```python
-vertices = np.array([...])
-faces = [...]
+vertices = np.array([
+    [0, 0, 0],  # 0
+    [1, 0, 0],  # 1
+    [1, 1, 0],  # 2
+    [0, 1, 0],  # 3
+    [0, 0, 1],  # 4
+    [1, 0, 1],  # 5
+    [1, 1, 1],  # 6
+    [0, 1, 1]   # 7
+])
+
+# Define faces (two per face, 12 faces total)
+faces = [
+    [0, 2, 1], [0, 3, 2],  # bottom face
+    [4, 5, 6], [4, 6, 7],  # top face
+    [0, 1, 5], [0, 5, 4],  # front face
+    [2, 3, 7], [2, 7, 6],  # back face
+    [0, 7, 3], [0, 4, 7],  # left face
+    ?????? <Fill in here>   # right face
+]
+
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 tri_faces = [[vertices[i] for i in tri] for tri in faces]  # list of 3D triangles
-ax.add_collection3d(Poly3DCollection(tri_faces, facecolors='cyan', edgecolors='black'))
+ax.add_collection3d(Poly3DCollection(tri_faces, facecolors='cyan', edgecolors='black', alpha=0.8))
 ax.scatter(vertices[:,0], vertices[:,1], vertices[:,2], color='blue')
+
+# Set labels
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+
+# Set equal aspect ratio
 ax.set_box_aspect([1, 1, 1])
 plt.title('3D Triangulation of a Cube')
 plt.show()
@@ -262,7 +305,10 @@ Concept check: why did we use min() and max() in the definition of edges?
 ### 3b. Face Orientation (somewhat advanced)
 Recall that the order of a triangle matters: the order of vertex indices listed for a triangle determines which way is "in" or "out" in 3D.
 Here we do a simple check for whether the faces of the cube are pointing the right way. 
-Let's use dot products to check if face normals point away from the mesh center. A dot product measures the amount of alignment between two vectors. If the face's "normal" direction (ie its "outward" direction) is pointing in a similar direction as the vector pointing from the origin to the face, then the dot product will be positive. If the face is oriented the wrong way, then the dot product is negative. 
+Let's use dot products to check if face normals point away from the mesh center. 
+A dot product measures the amount of alignment between two vectors. 
+If the face's "normal" direction (ie its "outward" direction) is pointing in a similar direction as the vector pointing from the origin to the face, then the dot product will be positive. 
+If the face is oriented the wrong way, then the dot product is negative. 
 
 
 ```python
@@ -276,9 +322,9 @@ def is_outward_facing(tri):
     normal = np.cross(v1 - v0, v2 - v0)
     # Vector from the center of the triangle to center of the cube
     tri_center = (v0 + v1 + v2) / 3
-    to_center = center - tri_center
+    from_center = tri_center - center 
     # Dot product tells us if the normal is pointing toward or away from the center
-    return np.dot(normal, to_center) < 0  # Should be negative if pointing outward
+    return np.dot(normal, from_center) > 0  # Should be negative if pointing outward
 
 # Check all faces
 inward_facing = []
@@ -338,102 +384,96 @@ The **Iterative Closest Point (ICP)** algorithm finds the rigid transform (rotat
 
 ### 5a. Generate and Offset Meshes
 
-Let's first make a couple of meshes-- one sphere and one ellipsoid. 
-We then translate the ellipsoid a bit so that we have to do some work to align it back up with the sphere. 
-These are `TriangleMesh` class instances from Open3D, and here we scale and translate one to simulate biological variation.
-
+Let's load a couple of meshes -- two guts from different embryos at a similar developmental stages. 
+We load these as `TriangleMesh` class instances from Open3D, but don't let that scare you: they are just containers for vertices and faces.
+We then compute the optimal translation and rotation that best matches one mesh to the other one. 
+I packaged this optimization in a function in `organ_geometry.py`.
 
 ```python
-import open3d as o3d
-from organ_geometry import compute_icp_transform_o3d
-from scipy.spatial import cKDTree
+from organ_geometry import align_mesh_icp, color_mesh_by_distance
 
-# === Create source (ellipsoid) and target (sphere) ===
-sphere = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
-ellipsoid = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
-ellipsoid.vertices = o3d.utility.Vector3dVector(
-    np.asarray(ellipsoid.vertices) * np.array([0.8, 1.0, 1.2])
-)
-ellipsoid.translate((0.4, 0.2, -0.1))
+ssfactor = 10 # subsampling factor (take 1/N points for the ICP registration).
+              # Larger values will run faster but be less precise. This is for speedup
+
+print('Reading in meshes...')
+fA = "wildtype/20240527/mesh_000040_APDV_um.ply"
+meshA = pv.read(fA)
+
+fB = "wildtype/20240531/mesh_000050_APDV_um.ply"
+meshB = pv.read(fB)
+
+# Align one mesh to the other
+meshA_t, T = align_mesh_icp(meshA, meshB, ssfactor=ssfactor)
+
 ```
+![Aligned Guts](figures/05_gutAlign.png)
+*Figure 5: Two different embryos' midguts, captured at a similar stage of development, aligned in space.*
 
-At this point, before we go on, let's make a copy of the current objects `sphere` and `ellipsoid`. This is needed since if we do operations on these objects, they will change. That is, these are *mutable* objects, just like a list is mutable in python.
-```python
-# ___ Save originals for "before" visualization ___
-ellipsoid_before = copy.deepcopy(ellipsoid)
-sphere_before = copy.deepcopy(sphere)
-```
-
-![Generated Meshes](figures/05_beforeICP.png)
-*Figure 5: Mismatched ellipsoid and sphere before alignment.*
-
-### 5b. Run ICP
-```python
-# === Point clouds for ICP ===
-src_pts = np.asarray(ellipsoid.vertices)
-sphere_pts = np.asarray(sphere.vertices)
-
-# ICP transform and application
-T, _ = compute_icp_transform_o3d(src_pts, sphere_pts)
-
-# === Transform ellipsoid ===
-ellipsoid_aligned = ellipsoid.transform(T)
-aligned_pts = np.asarray(ellipsoid_aligned.vertices)
-```
 Here `T` is a 4×4 NumPy array representing the optimal rigid transform.
 Advanced concept check: how are data stored inside `T`? Hint: There is a matrix encoding rotations and scaling, but also a translation (dx, dy, dz). Which columns/rows are which? 
 
 ### 5c. Compute and Color Distance
 We measure how close the aligned mesh is to the target and color it by the distance from the nearest matching point.
 ```python
-# === Compute nearest-neighbor distances from initial ellipsoid → sphere ===
-tree_sphere = cKDTree(sphere_pts)
-dists0, _ = tree_sphere.query(ellipsoid.vertices)
-
-# === Compute nearest-neighbor distances from ellipsoid → sphere ===
-tree_sphere = cKDTree(sphere_pts)
-dists, _ = tree_sphere.query(aligned_pts)
-
-maxdist = np.max(np.hstack((dists, dists0)))
-
-# === Normalize and colormap the distances ===
-colors = plt.cm.viridis(dists / maxdist)[:, :3]  # drop alpha channel
-ellipsoid_aligned.vertex_colors = o3d.utility.Vector3dVector(colors)
-
-# === Style sphere as transparent gray ===
-sphere.paint_uniform_color([0.5, 0.5, 0.5])
-sphere.compute_vertex_normals()
-
-# === Style before-view shapes ===
-colors = plt.cm.viridis(dists0 / maxdist)[:, :3]  # drop alpha channel
-ellipsoid_before.vertex_colors = o3d.utility.Vector3dVector(colors)
-sphere_before.paint_uniform_color([0.5, 0.5, 0.5])     # gray
-sphere_before.compute_vertex_normals()
+# Color the mesh by distance between the two
+color_mesh_by_distance(meshA_t, meshB, transform=None)
 ```
-The color array is a NumPy array with shape `(N, 3)` for RGB values.
 
-![Color Error](figures/05b_afterICP.png)
-*Figure 6: Ellipsoid colored by distance to nearest point on sphere after ICP.*
+![Distance between guts](figures/06_dist2gutmesh.png)
+*Figure 5: The Euclidean distance between two gut meshes.*
 
-### 5d. Visualize Before and After
-```python
-# === Visualize Before ICP ===
-o3d.visualization.draw_geometries(
-    [ellipsoid_before, sphere_before],
-    window_name="Before ICP Alignment",
-    mesh_show_back_face=True
-)
-
-# === Visualize After ICP ===
-o3d.visualization.draw_geometries(
-    [ellipsoid_aligned, sphere],
-    window_name="After ICP (Ellipsoid Colored by Distance)",
-    mesh_show_back_face=True
-)
-```
+Under the hood, in another function I put in `organ_geometry.py`, we computed the distance to the nearest meshB vertex for each vertex in meshA.
+Then we converted those distances to a color array, a NumPy array with shape `(N, 3)` for RGB values.
 How does your alignment look?
 
 
+### 5d. Generate and Offset Meshes
+The guts we've been looking at are from a wildtype embryo with three different fluorescent markers (full genotype is *w, HandGFP / w; UAS-mCh:CAAX / +;bynGAL4, klar / H2A-iRFP*. 
+Let's compare to the gut of an embryo that overexpresses Myosin1C (full genotype is *w, HandGFP / w; UAS-Myo1C:RFP / +;bynGAL4, klar / H2A-iRFP*).
+In this case, the unconventional myosin motor acts in a portion of the digestive tract (the *byn* domain) to invert the chiral shape dynamics.
+
+How similar are these two organ morphologies?
+
+Let's first compare them directly.
+
+```python
+print('Reading in meshes...')
+fA = "wildtype/20240527/mesh_000050_APDV_um.ply"
+meshA = pv.read(fA)
+
+fB = "bynGAL4_UASMyo1C/20240528/mesh_000052_APDV_um.ply"
+meshB = pv.read(fB)
+
+# Align one mesh to the other
+meshA_t, T = align_mesh_icp(meshA, meshB, ssfactor=ssfactor, Alabel="WT", Blabel='byn>Myo1C')
+
+# Color the mesh by distance between the two
+dists, plotter = color_mesh_by_distance(meshA_t, meshB, transform=None)
+plotter.show()
+```
+![Distance between guts](figures/06b_wtoe.png)
+*Figure 5: Overexpression of Myo1C dramatically changes the gut shape.*
+
+
+Now let's flip one across the left-right axis and compare them again. 
+
+```python
+# Now flip y -> -y in the Myo1C OE case
+meshA = pv.read(fA)
+meshB = pv.read(fB)
+meshB.points[:, 1] *= -1
+
+# Align one mesh to the other
+meshA_t, T = align_mesh_icp(meshA, meshB, ssfactor=ssfactor, Alabel="WT", Blabel='byn>Myo1C, mirrored')
+
+# Color the mesh by distance between the two
+dists, plotter = color_mesh_by_distance(meshA_t, meshB, transform=None)
+plotter.show()
+```
+
+![Distance between guts](figures/06b_wtoe_mirrored.png)
+*Figure 5: Overexpression of Myo1C nearly mirrors (inverts along the left-right axis) the gut shape.
+Pronounced residual mismatch is visible in the anterior chamber (arrowhead).*
 
 
 

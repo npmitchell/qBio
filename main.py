@@ -1,12 +1,26 @@
+from os import mkdir
+
+import matplotlib.pyplot as plt
+
 from organ_geometry import *
 import pandas as pd
 
+# WT / OE --> first do without L/R
+# Anterior part different
+# Black box the details that are field-specific
+# Get rid of sphere + ellipsoid
+
+
 # Parameters
 wt_oe = 'oe' # 'wt' 'oe' 'x1' 'x2' 'x3' 'x4'
-step = 3
-ssfactor = 5
-dt = 2
+step = 4      # subsampling in time
+ssfactor = 10   # subsampling factor (take 1/N points for the ICP registration).
+              # Larger values will run faster but be less precise. This is for speedup.
+dt = 2         # timestep in minutes between adjacent timepoints
 outdir = './results'
+if not os.path.exists(outdir):
+    mkdir(outdir)
+
 
 conditions = ['wt', 'oe', 'x1', 'x2', 'x3', 'x4']
 
@@ -14,34 +28,46 @@ for i, wt_oe in enumerate(conditions):
     if wt_oe == 'wt':
         # dirA = "HandGFPbynGAL4klar_UASmChCAAXHiFP/20240527/"
         # dirB = "HandGFPbynGAL4klar_UASmChCAAXHiFP/20240531/"
-        dirA = "wt/20240527/"
-        dirB = "wt/20240531/"
+        dirA = "wildtype/20240527/"
+        dirB = "wildtype/20240531/"
         flipy = False
     elif wt_oe == 'oe':
-        dirA = "oe/20240528/"
-        dirB = "oe/20240626/"
+        dirA = "bynGAL4_UASMyo1C/20240528/"
+        dirB = "bynGAL4_UASMyo1C/20240626/"
         flipy = False
     elif wt_oe == 'x1':
-        dirA = "wt/20240527/"
-        dirB = "oe/20240528/"
+        dirA = "wildtype/20240527/"
+        dirB = "bynGAL4_UASMyo1C/20240528/"
         flipy = True
     elif wt_oe == 'x2':
-        dirA = "wt/20240527/"
-        dirB = "oe/20240626/"
+        dirA = "wildtype/20240527/"
+        dirB = "bynGAL4_UASMyo1C/20240626/"
         flipy = True
     elif wt_oe == 'x3':
-        dirA = "wt/20240531/"
-        dirB = "oe/20240528/"
+        dirA = "wildtype/20240531/"
+        dirB = "bynGAL4_UASMyo1C/20240528/"
         flipy = True
     elif wt_oe == 'x4':
-        dirA = "wt/20240531/"
-        dirB = "oe/20240626/"
+        dirA = "wildtype/20240531/"
+        dirB = "bynGAL4_UASMyo1C/20240626/"
         flipy = True
 
 
     # List and sort .ply files
-    filesA = natsorted([f for f in os.listdir(dirA) if f.endswith(".ply")])[::step]
-    filesB = natsorted([f for f in os.listdir(dirB) if f.endswith(".ply")])[::step]
+    filesA = []
+    for f in os.listdir(dirA):
+        if f.endswith(".ply"):
+            filesA.append(f)
+
+    filesA = natsorted(filesA[::step])
+
+    # Do the same for dirB
+    filesB = []
+    for f in os.listdir(dirB):
+        if f.endswith(".ply"):
+            filesB.append(f)
+
+    filesB = natsorted(filesB[::step])
 
     # Extract timepoints from filenames
     tpsA = np.array([extract_tp(f) for f in filesA])
@@ -67,16 +93,31 @@ for i, wt_oe in enumerate(conditions):
     # Plot the result on the RMSE (ICP mismatch) heatmap
     # -----------------------------------------------
     plt.figure()
-    plt.imshow(icp_smooth, cmap='inferno')
-    plt.plot(path[:,1], path[:, 0], '.-', lw=2, color='tab:purple')
-    plt.plot(AtoB, np.arange(len(tpsA)), '.-', lw=2, color='tab:blue')
-    plt.plot(np.arange(len(tpsB)), BtoA, '.-', lw=2, color='tab:orange')
-    plt.title("PCA-Smoothed Timepoint Matching")
+    plt.imshow(icp_raw, cmap='inferno')
+    plt.title("Timeline comparison via ICP")
     plt.xlabel("Time B")
     plt.ylabel("Time A")
     plt.colorbar(label="ICP Error")
     plt.axis('equal')
     plt.tight_layout()
+    plt.show()
+
+
+    # -----------------------------------------------
+    # Plot the result on the RMSE (ICP mismatch) heatmap
+    # -----------------------------------------------
+    plt.figure()
+    plt.imshow(icp_smooth, cmap='inferno')
+    plt.plot(path[:,1], path[:, 0], '.-', lw=2, color='tab:purple')
+    plt.plot(AtoB, np.arange(len(tpsA)), '.-', lw=2, color='tab:blue')
+    plt.plot(np.arange(len(tpsB)), BtoA, '.-', lw=2, color='tab:orange')
+    plt.title("Timepoint Matching")
+    plt.xlabel("Time B")
+    plt.ylabel("Time A")
+    plt.colorbar(label="ICP Error")
+    plt.axis('equal')
+    plt.tight_layout()
+    plt.savefig(os.path.join(outdir, 'TPMatching.png'))
     plt.show()
 
 
@@ -104,6 +145,7 @@ for i, wt_oe in enumerate(conditions):
     ax2.set_title("B→A Matching")
     ax2.grid(True)
     ax2.legend()
+    plt.savefig(os.path.join(outdir, 'TPMatching_AtoB_BtoA.png'))
     plt.show()
 
 
@@ -153,7 +195,8 @@ for i, wt_oe in enumerate(conditions):
     ax2.set_title("B→A Matching")
     ax2.grid(True)
     ax2.legend()
-    # plt.show()
+    plt.savefig(os.path.join(outdir, 'TPMatching_AtoB_BtoA_expectedRMSE.png'))
+    plt.show()
 
     # --------------------------------------
     # Visualize the overlay between two timepoints
@@ -182,8 +225,16 @@ for i, wt_oe in enumerate(conditions):
     plotter.add_mesh(meshA_t, color="crimson", opacity=0.6, label="A (transformed)")
     plotter.add_mesh(meshB, color="dodgerblue", opacity=0.6, label="B")
     plotter.add_legend()
+    plotter.save_graphic(os.path.join(outdir, 'example_overlay.pdf'))
     plotter.show(interactive_update=True)
     plotter.close()
+
+    # --------------------------------------
+    # Color by distance between the two
+    # --------------------------------------
+    # Show distance coloring
+    outfn = os.path.join(outdir, 'example_mesh_by_distance.pdf')
+    color_mesh_by_distance(meshA_t, meshB, transform=None, outfn=outfn)
 
     # --------------------------------------
     # Batch overlays
@@ -192,30 +243,6 @@ for i, wt_oe in enumerate(conditions):
     batch_icp_overlay(dirA, dirB, filesA, filesB, AtoB, outdir="icp_overlay_"+wt_oe,
                       ssfactor=ssfactor, xyzlim=xyzlim, flipy=flipy,
                       Alabel=dirA, Blabel=dirB)
-
-    # --------------------------------------
-    # Color by distance between the two
-    # --------------------------------------
-    # Load meshes
-    tp2view = int(np.median(tpsA))
-    tidx = np.argmin(np.abs(tpsA - tp2view))
-
-    meshA = pv.read(os.path.join(dirA, filesA[tidx]))
-    meshB = pv.read(os.path.join(dirB, filesB[AtoB[tidx]]))
-
-    # Subsample point clouds for ICP
-    vA = meshA.points[::ssfactor]
-    vB = meshB.points[::ssfactor]
-    centroid_shift = vB.mean(axis=0) - vA.mean(axis=0)
-    meshA_t = meshA.translate(centroid_shift, inplace=False)
-    vA += centroid_shift
-
-    # ICP transform and application
-    T, _ = compute_icp_transform_o3d(vA, vB)
-    meshA_t.transform(T, inplace=True)
-
-    # Show distance coloring
-    color_mesh_by_distance(meshA_t, meshB, transform=None)
 
     # --------------------------------------
     # Color the meshes by mismatch distance en masse
@@ -243,6 +270,7 @@ for i, wt_oe in enumerate(conditions):
     plt.colorbar(label="ICP Error")
     plt.axis('equal')
     plt.tight_layout()
+    plt.savefig(os.path.join(outdir, 'TPMatching_PCASm.png'))
     plt.show()
     plt.close()
 
@@ -265,14 +293,14 @@ for i, wt_oe in enumerate(conditions):
         "icpSmoothB": icpSmoothB
     })
 
-    df_icp.to_csv(f"icp_error_AtoB_{wt_oe}_step{step}_ss{ssfactor}.csv", index=False)
-    df_icp_B.to_csv(f"icp_error_BtoA_{wt_oe}_step{step}_ss{ssfactor}.csv", index=False)
+    df_icp.to_csv(os.path.join(outdir, f"icp_error_AtoB_{wt_oe}_step{step}_ss{ssfactor}.csv"), index=False)
+    df_icp_B.to_csv(os.path.join(outdir, f"/icp_error_BtoA_{wt_oe}_step{step}_ss{ssfactor}.csv"), index=False)
 
-    np.save(f"icp_raw_{wt_oe}_step{step}_ss{ssfactor}.npy", icp_raw)
-    np.save(f"icp_smooth_{wt_oe}_step{step}_ss{ssfactor}.npy", icp_smooth)
-    np.save(f"expected_rmse_A_{wt_oe}_step{step}_ss{ssfactor}.npy", expected_rmse_A)
-    np.save(f"expected_rmse_B_{wt_oe}_step{step}_ss{ssfactor}.npy", expected_rmse_B)
-    np.save(f"path_{wt_oe}_step{step}_ss{ssfactor}.npy", [path, path_tps])
+    np.save(os.path.join(outdir, f"icp_raw_{wt_oe}_step{step}_ss{ssfactor}.npy"), icp_raw)
+    np.save(os.path.join(outdir, f"icp_smooth_{wt_oe}_step{step}_ss{ssfactor}.npy"), icp_smooth)
+    np.save(os.path.join(outdir, f"expected_rmse_A_{wt_oe}_step{step}_ss{ssfactor}.npy"), expected_rmse_A)
+    np.save(os.path.join(outdir, f"expected_rmse_B_{wt_oe}_step{step}_ss{ssfactor}.npy"), expected_rmse_B)
+    np.save(os.path.join(outdir, f"path_{wt_oe}_step{step}_ss{ssfactor}.npy"), [path, path_tps])
 
 # ------------------------------------------------------------
 # Compare difference between WT and OE against
@@ -323,6 +351,7 @@ plt.title("Within- vs cross-ensemble ICP RMSE")
 plt.grid(True)
 plt.legend()
 plt.tight_layout()
+plt.savefig(os.path.join(outdir, 'cross_ensemble_RMSE.png'))
 plt.show()
 
 print(f"Mean WT↔OE diff: {mean_diff:.3f}")

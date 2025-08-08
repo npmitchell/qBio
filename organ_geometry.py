@@ -11,6 +11,66 @@ import re
 from natsort import natsorted
 from scipy.spatial import cKDTree
 import pyvista as pv
+import copy
+
+# Interactive portion of the tutorial
+def align_mesh_icp(meshA, meshB, plotResult=True, ssfactor=5,  Alabel="A", Blabel="B"):
+    """Align subsampled meshA to subsampled meshB using ICP. First aligns centroids.
+
+    Parameters
+    ----------
+    meshA: pyvista mesh object
+        Mesh to align, with vertices and faces
+    meshB: pyvista mesh object
+        Mesh to align to, with vertices and faces
+    plotResult: bool (default=True)
+        plot the results
+    ssfactor: int (1 or larger)
+        Subsampling factor. Larger values will speed up computation but potentially be less precise
+
+    Returns
+    -------
+    meshA_t, T
+
+    """
+    vA = np.asarray(meshA.points)
+    vA = subsample_vertices(vA, ssfactor)
+    vB = np.asarray(meshB.points)
+    vB = subsample_vertices(vB, ssfactor)
+
+    if plotResult:
+        # --- Save original for "before" visualization ---
+        meshA_before = copy.deepcopy(meshA)
+
+    # === Transform A to match B ===
+    # First shift the centroids to match. This aids in ICP convergence.
+    centroid_shift = vB.mean(axis=0) - vA.mean(axis=0)
+    meshA_t = meshA.translate(centroid_shift, inplace=False)
+    vA += centroid_shift
+    # ICP transform and application
+    print('Computing optimal transform via ICP...')
+    T, _ = compute_icp_transform_o3d(vA, vB)
+    meshA_t.transform(T, inplace=True)
+
+    if plotResult:
+        # Plot before alignment
+        plotter = pv.Plotter()
+        plotter.set_background("white")
+        plotter.add_mesh(meshA_before, color="crimson", opacity=0.6, label=Alabel+"(original)")
+        plotter.add_mesh(meshB, color="dodgerblue", opacity=0.6, label=Blabel)
+        plotter.add_legend()
+        plotter.show(interactive_update=True)
+
+        # Plot after alignment
+        plotter = pv.Plotter()
+        plotter.set_background("white")
+        plotter.add_mesh(meshA_t, color="crimson", opacity=0.6, label=Alabel+" (transformed)")
+        plotter.add_mesh(meshB, color="dodgerblue", opacity=0.6, label=Blabel)
+        plotter.add_legend()
+        plotter.show(interactive_update=True)
+
+    return meshA_t, T
+
 
 # ----------------------
 # STEP 4: Subsampling Meshes (for speed)
@@ -112,6 +172,9 @@ def build_icp_cost_matrix(dirA, dirB, ssfactor=10, step=1, preview=False, flipy=
 
             vB = np.asarray(meshB.points)
             vB = subsample_vertices(vB, ssfactor)
+
+            centroid_shift = vB.mean(axis=0) - vA.mean(axis=0)
+            vA += centroid_shift
 
             try:
                 TAB, _ = compute_icp_transform_o3d(vA, vB, threshold=5.0)
@@ -450,7 +513,8 @@ def batch_icp_overlay(dirA, dirB, filesA, filesB, AtoB, outdir="icp_frames", ssf
 # ----------------------------------
 # STEP 13: Color by distance from target mesh
 # ----------------------------------
-def color_mesh_by_distance(source_mesh: pv.PolyData, target_mesh: pv.PolyData, transform=None, colormap="inferno"):
+def color_mesh_by_distance(source_mesh: pv.PolyData, target_mesh: pv.PolyData,
+                           transform=None, colormap="inferno", outfn=None):
     """
     Color the source mesh by its distance from the target mesh.
 
@@ -464,6 +528,8 @@ def color_mesh_by_distance(source_mesh: pv.PolyData, target_mesh: pv.PolyData, t
         Homogeneous transform to apply to source mesh.
     colormap : str
         Name of matplotlib colormap to use.
+    outfn : str
+        Output filename for figure
     """
     src = source_mesh.copy()
     if transform is not None:
@@ -481,18 +547,20 @@ def color_mesh_by_distance(source_mesh: pv.PolyData, target_mesh: pv.PolyData, t
     # Apply colormap to distances
     colors = plt.get_cmap(colormap)(norm_dists)[:, :3]  # drop alpha
 
-    src.point_data["distance"] = dists
+    src.point_data["distance [µm]"] = dists
     src.point_data["colors"] = colors
 
     # Plot
     plotter = pv.Plotter()
     plotter.set_background("white")
-    plotter.add_mesh(src, scalars="distance", cmap=colormap, show_scalar_bar=True)
+    plotter.add_mesh(src, scalars="distance [µm]", cmap=colormap, show_scalar_bar=True)
     plotter.add_mesh(target_mesh, color="gray", opacity=0.2)
     plotter.add_title("Source Mesh Colored by Distance to Target")
+    if outfn is not None:
+        plotter.save_graphic(outfn)
+
     plotter.show(interactive_update=True)
-    plotter.close()
-    return dists
+    return dists, plotter
 
 def compute_global_bounds(dirA, dirB, filesA, filesB):
     """

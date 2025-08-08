@@ -3,7 +3,7 @@
 # This notebook introduces core concepts in scientific programming using Python,
 # with applications to comparing 3D biological shapes across time.
 # We will start from the basics and build up to aligning mesh surfaces using ICP.
-# After completing this tutorial, advance to Steps 4-onward in main.py
+# After completing this tutorial, advance to Steps in main.py
 
 # ----------------------
 # STEP 1: Imports and Setup
@@ -16,11 +16,15 @@ from mesh import Mesh
 import copy
 
 # ----------------------
-# STEP 2: Understanding Triangulations
+# STEP 2a: Understanding Triangulations
 # ----------------------
+# We read in the Stanford Bunny, provided by the Stanford Computer Graphics Laboratory.
+m = pv.read('bunny.ply')
+print(m)
+m.plot(show_edges=True)
 
 # ----------------------
-# 2a: single triangle
+# 2b: single triangle
 # ----------------------
 # Let's visualize a single triangle
 x = np.array([0, 1, 0])
@@ -32,7 +36,7 @@ faces = [[0, 1, 2]]
 # Concept check: Why do we have to index into faces?
 plt.figure()
 plt.plot(x[faces[0]], y[faces[0]], '-')
-plt.title('A Single Triangle')
+plt.title('single triangle...almost')
 plt.axis('equal')
 plt.show()
 
@@ -42,7 +46,7 @@ plt.show()
 face = faces[0]
 plt.figure()
 plt.plot(np.append(x[face], x[face[0]]), np.append(y[face], y[face[0]]), '-o')
-plt.title('A Single Triangle')
+plt.title('single triangle')
 plt.axis('equal')
 plt.show()
 
@@ -55,12 +59,12 @@ plt.axis('equal')
 plt.show()
 
 # ----------------------
-# 2b: square
+# 2c: A triangulated square (ie two triangles, or a 'kite')
 # ----------------------
 # Let's visualize a simple triangulation of a square (2D)
 x = np.array([0, 1, 0, 1])
 y = np.array([0, 0, 1, 1])
-faces = [[0, 1, 2], [1, 3, 2]]
+faces = [[0, 1, 2], [1, 2, 3]]
 
 plt.figure()
 plt.triplot(x, y, faces, color='black')
@@ -71,7 +75,7 @@ plt.show()
 
 
 # ----------------------
-# 2c: cube
+# 2d: cube
 # ----------------------
 # Make a triangulation of a cube
 
@@ -131,9 +135,10 @@ plt.show()
 
 # ----------------------
 # ADVANCED: Check if mesh is watertight
-# This demonstrates the python object called a dictionary
+# This demonstrates the python object called a dictionary.
 # ----------------------
 # Initialize an empty dictionary to count edges
+# A dict is a natural data structure (for many languages) that is versatile and mutable.
 edge_count = {}
 
 # Loop over all faces
@@ -169,10 +174,6 @@ else:
         print(f"  Edge {edge} appears {count} times")
 
 
-# Alternative -- Challenge: how does this check work?
-mm = Mesh(vertices, faces)
-mm.is_closed()
-
 # ----------------------
 # ADVANCED: Check if faces are oriented correctly
 # ----------------------
@@ -185,9 +186,9 @@ def is_outward_facing(tri):
     normal = np.cross(v1 - v0, v2 - v0)
     # Vector from the center of the triangle to center of the cube
     tri_center = (v0 + v1 + v2) / 3
-    to_center = center - tri_center
+    from_center = tri_center - center
     # Dot product tells us if the normal is pointing toward or away from the center
-    return np.dot(normal, to_center) < 0  # Should be negative if pointing outward
+    return np.dot(normal, from_center) > 0  # Should be negative if pointing outward
 
 # Check all faces
 inward_facing = []
@@ -214,9 +215,9 @@ mm.force_z_normal(direction=1)
 
 
 # ----------------------
-# STEP 3: Working with 3D Meshes
+# STEP 3: Working with 3D Meshes derived from from microscopy data
 # ----------------------
-m = pv.read('./wt/20240527/mesh_000000_APDV_um.ply')
+m = pv.read('./wildtype/20240527/mesh_000000_APDV_um.ply')
 print(m)
 m.plot(show_edges=True)
 
@@ -224,67 +225,54 @@ m.plot(show_edges=True)
 # ----------------------
 # STEP 3b: Aligning 3D Meshes
 # ----------------------
-import open3d as o3d
-from organ_geometry import compute_icp_transform_o3d
-from scipy.spatial import cKDTree
+from organ_geometry import align_mesh_icp, color_mesh_by_distance
 
-# === Create source (ellipsoid) and target (sphere) ===
-sphere = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
-ellipsoid = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
-ellipsoid.vertices = o3d.utility.Vector3dVector(
-    np.asarray(ellipsoid.vertices) * np.array([0.8, 1.0, 1.2])
-)
-ellipsoid.translate((0.4, 0.2, -0.1))
+ssfactor = 10 # subsampling factor (take 1/N points for the ICP registration).
+              # Larger values will run faster but be less precise. This is for speedup
 
-# --- Save originals for "before" visualization ---
-ellipsoid_before = copy.deepcopy(ellipsoid)
-sphere_before = copy.deepcopy(sphere)
+print('Reading in meshes...')
+fA = "wildtype/20240527/mesh_000040_APDV_um.ply"
+meshA = pv.read(fA)
 
-# === Point clouds for ICP ===
-src_pts = np.asarray(ellipsoid.vertices)
-sphere_pts = np.asarray(sphere.vertices)
+fB = "wildtype/20240531/mesh_000050_APDV_um.ply"
+meshB = pv.read(fB)
 
-# ICP transform and application
-T, _ = compute_icp_transform_o3d(src_pts, sphere_pts)
+# Align one mesh to the other
+meshA_t, T = align_mesh_icp(meshA, meshB, ssfactor=ssfactor)
 
-# === Transform ellipsoid ===
-ellipsoid_aligned = ellipsoid.transform(T)
-aligned_pts = np.asarray(ellipsoid_aligned.vertices)
+# Color the mesh by distance between the two
+color_mesh_by_distance(meshA_t, meshB, transform=None)
 
-# === Compute nearest-neighbor distances from initial ellipsoid → sphere ===
-tree_sphere = cKDTree(sphere_pts)
-dists0, _ = tree_sphere.query(ellipsoid.vertices)
 
-# === Compute nearest-neighbor distances from ellipsoid → sphere ===
-tree_sphere = cKDTree(sphere_pts)
-dists, _ = tree_sphere.query(aligned_pts)
+# ------------------------------
+# Aligning Myo1C OE to WT guts
+# ------------------------------
+print('Reading in meshes...')
+fA = "wildtype/20240527/mesh_000050_APDV_um.ply"
+meshA = pv.read(fA)
 
-maxdist = np.max(np.hstack((dists, dists0)))
+fB = "bynGAL4_UASMyo1C/20240528/mesh_000052_APDV_um.ply"
+meshB = pv.read(fB)
 
-# === Normalize and colormap the distances ===
-colors = plt.cm.viridis(dists / maxdist)[:, :3]  # drop alpha channel
-ellipsoid_aligned.vertex_colors = o3d.utility.Vector3dVector(colors)
+# Align one mesh to the other
+meshA_t, T = align_mesh_icp(meshA, meshB, ssfactor=ssfactor, Alabel="WT", Blabel='byn>Myo1C')
 
-# === Style sphere as transparent gray ===
-sphere.paint_uniform_color([0.5, 0.5, 0.5])
-sphere.compute_vertex_normals()
+# Color the mesh by distance between the two
+dists, plotter = color_mesh_by_distance(meshA_t, meshB, transform=None)
+plotter.show()
 
-# === Style before-view shapes ===
-colors = plt.cm.viridis(dists0 / maxdist)[:, :3]  # drop alpha channel
-ellipsoid_before.vertex_colors = o3d.utility.Vector3dVector(colors)
-sphere_before.paint_uniform_color([0.5, 0.5, 0.5])     # gray
-sphere_before.compute_vertex_normals()
 
-# === Visualize Before ICP ===
-o3d.visualization.draw_geometries(
-    [ellipsoid_before, sphere_before],
-    window_name="Before ICP Alignment",
-    mesh_show_back_face=True
-)
+# ------------------------------
+# Invert Myo1C OE gut and compare again to WT
+# ------------------------------
+# Now flip y -> -y in the Myo1C OE case
+meshA = pv.read(fA)
+meshB = pv.read(fB)
+meshB.points[:, 1] *= -1
 
-# === Visualize After ICP ===
-o3d.visualization.draw_geometries(
-    [ellipsoid_aligned, sphere],
-    window_name="After ICP (Ellipsoid Colored by Distance)",
-    mesh_show_back_face=True
-)
+# Align one mesh to the other
+meshA_t, T = align_mesh_icp(meshA, meshB, ssfactor=ssfactor, Alabel="WT", Blabel='byn>Myo1C, mirrored')
+
+# Color the mesh by distance between the two
+dists, plotter = color_mesh_by_distance(meshA_t, meshB, transform=None)
+plotter.show()
