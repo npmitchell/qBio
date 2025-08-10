@@ -17,18 +17,19 @@ ___
 ### 0a. Pycharm
 To begin working with Python code, we recommend using PyCharm, a free, user-friendly code editor. 
 First, download PyCharm Community Edition and install it on your computer following the instructions here:
-`https://www.jetbrains.com/help/pycharm/installation-guide.html`. When you open PyCharm 
-for the first time, create a new project: choose the folder where this tutorial's code resides, and copy the 
-`wildtype` and `bynGAL4_UASMyo1C` data to that same folder (see Figure 1). 
+`https://www.jetbrains.com/help/pycharm/installation-guide.html`. 
+Also download the data Box folders `wildtype` and `bynGAL4_UASMyo1C` to the same place where you have this code cloned (see Figure 1A). 
+When you open PyCharm for the first time, create a new project: choose the folder where this tutorial's code resides -- same place as where the 
+`wildtype` and `bynGAL4_UASMyo1C` data live (see Figure 1B). 
 
 Then configure a Python interpreter. Select or create an interpreter that uses Python 3.10 — 
 this version is required for the tutorials in this course. If no interpreter is available, click 
 “Add Interpreter” and choose a Virtualenv, then select Python 3.10 
-as the base interpreter during setup (you may need to install it, see Figure 1).
+as the base interpreter during setup (you may need to install it, see Figure 1C).
 If you are experienced with python, feel free to use a Conda Environment and create a base interpreter 
 from python 3.10. 
 Once your project is open, open organ_geometry.py. At the top, some of the modules will be underlined in red since they are not installed.
-Hover over one and click `Install all missing packages` (see Figure 1). Then close organ_geometry.py and open the
+Hover over one and click `Install all missing packages` (see Figure 1D). Then close organ_geometry.py and open the
 Python Console using the top icon in the bottom left (see Figure 2).
 Now you can copy-paste snippets of code into the Python Console to run them (note the copy icon circled in Figure 2).
 If you see an error like ModuleNotFoundError for any reason while playing with the code, click the red light 
