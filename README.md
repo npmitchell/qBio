@@ -577,7 +577,7 @@ fig.colorbar(im2, ax=ax2, label="Smoothed ICP Error")
 plt.show()
 ```
 
-![xcomparison](figures/06_icpRMSE.png)
+![ICP_heatmaps](figures/06_icpRMSE.png)
 *Figure 13: Raw and smoothed root-mean-squared error measurements after ICP alignment for two different WT datasets.*
 
 Match timepoints in this matrix by finding row and column minima.
@@ -613,7 +613,7 @@ plt.show()
 ```
 
 
-![xcomparison](figures/06_icpRMSE_paths.png)
+![ICP_RMSE_Paths](figures/06_icpRMSE_paths.png)
 *Figure 14: The paths represent AtoB alignment (blue), BtoA alignment (orange), and the result of a simple dynamic time warping implementation (purple).*
 
 ```python
@@ -641,7 +641,7 @@ ax2.legend()
 plt.savefig(os.path.join(outdir, f'TPMatching_AtoB_BtoA_{wt_oe}_step{step}_ss{ssfactor}.png'))
 plt.show()
 ```
-![xcomparison](figures/07_icpRMSE_curves.png)
+![ICP_RMSE_curves](figures/07_icpRMSE_curves.png)
 *Figure 15: The average root-mean-squared mismatch at each timepoint along the AtoB and BtoA paths show that cross-shape variation rises slightly over time.*
 
 
@@ -703,7 +703,7 @@ plt.show()
 ```
 
 
-![xcomparison](figures/08_icpRMSE_baseline.png)
+![baseline](figures/08_icpRMSE_baseline.png)
 *Figure 16: The expected baseline ICP error from finite sampling of the meshes lies far below the measured values.*
 
 
@@ -725,7 +725,7 @@ batch_icp_overlay(dirA, dirB, filesA, filesB, AtoB,
                   Alabel=dirA, Blabel=dirB)
 ```
 
-![xcomparison](figures/06_overlay_024.png)
+![overlay](figures/06_overlay_024.png)
 *Figure 17: Spatial alignment of two WT midguts at an example timepoint.*
 
 
@@ -748,7 +748,7 @@ batch_color_by_distance(dirA, dirB, filesA, filesB, AtoB,
 ```
 
 
-![xcomparison](figures/08_example_mesh_by_distance.png)
+![exdistancemesh](figures/08_example_mesh_by_distance.png)
 *Figure 17: Spatial alignment of two WT midguts at an example timepoint.*
 
 ## 12. Advanced: PCA-based smoothing as an alternative to dynamic time warping
@@ -783,7 +783,8 @@ plt.savefig(os.path.join(outdir, f'TPMatching_PCASm_{wt_oe}_step{step}_ss{ssfact
 plt.show()
 ```
 
-
+![ICP_paths](figures/09_icpPCA_path.png)
+*Figure 14: PCA-based smoothing (red curve) offers an alternative for reconciling the AtoB and BtoA timeline matching differences.*
 ___
 
 ## 13. Final Export
