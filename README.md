@@ -16,18 +16,22 @@ ___
 
 ### 0a. Pycharm
 To begin working with Python code, we recommend using PyCharm, a free, user-friendly code editor. 
-First, download PyCharm Community Edition and install it on your computer from 
-`https://www.jetbrains.com/pycharm/download/other.html` When you open PyCharm 
-for the first time, create a new project: choose a folder where your code will live, and then 
-configure a Python interpreter. You must select or create an interpreter that uses Python 3.10 — 
+First, download PyCharm Community Edition and install it on your computer following the instructions here:
+`https://www.jetbrains.com/help/pycharm/installation-guide.html`. When you open PyCharm 
+for the first time, create a new project: choose the folder where this tutorial's code resides, and copy the 
+`wildtype` and `bynGAL4_UASMyo1C` data to that same folder (see Figure 1). 
+
+Then configure a Python interpreter. Select or create an interpreter that uses Python 3.10 — 
 this version is required for the tutorials in this course. If no interpreter is available, click 
-“Add Interpreter” and choose a Virtualenv, then make sure to select Python 3.10 
-as the base interpreter during setup (you may need to install it).
+“Add Interpreter” and choose a Virtualenv, then select Python 3.10 
+as the base interpreter during setup (you may need to install it, see Figure 1).
 If you are experienced with python, feel free to use a Conda Environment and create a base interpreter 
 from python 3.10. 
-Once your project is open, create a new Python file (e.g., my_script.py), paste in the code from 
-this tutorial, and press the green Play button to run it. The bottom of the window will show 
-your results in the console. If you see an error like ModuleNotFoundError, click the red light 
+Once your project is open, open organ_geometry.py. At the top, some of the modules will be underlined in red since they are not installed.
+Hover over one and click `Install all missing packages` (see Figure 1). Then close organ_geometry.py and open the
+Python Console using the top icon in the bottom left (see Figure 2).
+Now you can copy-paste snippets of code into the Python Console to run them (note the copy icon circled in Figure 2).
+If you see an error like ModuleNotFoundError for any reason while playing with the code, click the red light 
 bulb or go to Settings > Python Interpreter to install the missing package 
 (or use conda install <package-name> in the terminal if you are using a Conda environment). 
 That’s it — you’re ready to start coding in Python!
@@ -37,6 +41,13 @@ with what you need with:
 ```
 $ conda env create -f environment.yml
 ```
+
+
+![midgut](figures/00_setup1.jpg)
+*Figure 1: Setting up in PyCharm.*
+
+![midgut](figures/00_setup2.jpg)
+*Figure 2: Running this module in PyCharm.*
 
 ### 0a. Python
 Python provides several core data structures that are widely used in both everyday scripting and advanced scientific workflows. Understanding their characteristics will help you choose the right tool for the job and write clearer, more efficient code.
@@ -77,7 +88,7 @@ understanding of the tissue-scale forces that drive organ-scale chirality.
 One direction in the Mitchell Lab aims to uncover the mechanical forces that
 drive organ asymmetry and relate them to cell-intrinsic activity of Myo1C.
 Here in this tutorial, we'll look at the chiral shape dynamics of the
-\textit{Drosophila} midgut as a model system. 
+*Drosophila* midgut as a model system. 
 We will ask: to what extent are the guts of wild-type and embryos with myosin 1C overexpression mirror images of one another?
 
 The data you are working with was taken from live, multiview lightsheet microscopy imaging of 
@@ -86,7 +97,7 @@ We used computer vision tools (Mitchell & Cislo, 2023) to extract the tissue sur
 Here you are presented with these mesh triangulations. 
 
 ![midgut](figures/00_gut.jpg)
-*Figure 0: Multiview lightsheet imaging and computer vision tools enable analysis of chiral shape changes in gut morphogenesis.*
+*Figure 3: Multiview lightsheet imaging and computer vision tools enable analysis of chiral shape changes in gut morphogenesis.*
 
 ## 1. Setup and Imports
 
@@ -134,7 +145,7 @@ m.plot(show_edges=True)
 ```
 
 ![Stanford Bunny](figures/00_bunny.png)
-*Figure 1: The Stanford bunny as a mesh triangulation, composed of vertices and faces.*
+*Figure 4: The Stanford bunny as a mesh triangulation, composed of vertices and faces.*
  
 How is this defined? It has vertices and faces. A face connects three vertices. 
 Because the faces are triangles, this is a *triangulation*.
@@ -184,7 +195,7 @@ plt.show()
 ```
 
 ![Single Triangle](figures/01_triangle.png)
-*Figure 2: A single triangle plotted using `triplot`.*
+*Figure 5: A single triangle plotted using `triplot`.*
 
 ### 2c. A Triangulated Square
 We build a square from two triangles.
@@ -249,7 +260,7 @@ plt.show()
 ```
 Try moving it around.
 ![3D Cube](figures/03_cube.png)
-*Figure 3: Triangulated cube from 8 vertices and 12 triangles.*
+*Figure 6: Triangulated cube from 8 vertices and 12 triangles.*
 
 
 
@@ -374,7 +385,7 @@ m.plot(show_edges=True)
 ```
 
 ![Microscopy Mesh](figures/04_gut.png)
-*Figure 4: Example mesh from level sets and Poisson disk surface reconstruction.*
+*Figure 7: Example mesh from level sets and Poisson disk surface reconstruction.*
 
 ___
 
@@ -408,7 +419,7 @@ meshA_t, T = align_mesh_icp(meshA, meshB, ssfactor=ssfactor)
 
 ```
 ![Aligned Guts](figures/05_gutAlign.png)
-*Figure 5: Two different embryos' midguts, captured at a similar stage of development, aligned in space.*
+*Figure 8: Two different embryos' midguts, captured at a similar stage of development, aligned in space.*
 
 Here `T` is a 4×4 NumPy array representing the optimal rigid transform.
 Advanced concept check: how are data stored inside `T`? Hint: There is a matrix encoding rotations and scaling, but also a translation (dx, dy, dz). Which columns/rows are which? 
@@ -421,7 +432,7 @@ color_mesh_by_distance(meshA_t, meshB, transform=None)
 ```
 
 ![Distance between guts](figures/06_dist2gutmesh.png)
-*Figure 5: The Euclidean distance between two gut meshes.*
+*Figure 9: The Euclidean distance between two gut meshes.*
 
 Under the hood, in another function I put in `organ_geometry.py`, we computed the distance to the nearest meshB vertex for each vertex in meshA.
 Then we converted those distances to a color array, a NumPy array with shape `(N, 3)` for RGB values.
@@ -453,7 +464,7 @@ dists, plotter = color_mesh_by_distance(meshA_t, meshB, transform=None)
 plotter.show()
 ```
 ![Distance between guts](figures/06b_wtoe.png)
-*Figure 5: Overexpression of Myo1C dramatically changes the gut shape.*
+*Figure 10: Overexpression of Myo1C dramatically changes the gut shape.*
 
 
 Now let's flip one across the left-right axis and compare them again. 
@@ -473,7 +484,7 @@ plotter.show()
 ```
 
 ![Distance between guts](figures/06b_wtoe_mirrored.png)
-*Figure 5: Overexpression of Myo1C nearly mirrors (inverts along the left-right axis) the gut shape.
+*Figure 11: Overexpression of Myo1C nearly mirrors (inverts along the left-right axis) the gut shape.
 Pronounced residual mismatch is visible in the anterior chamber (arrowhead).*
 
 
@@ -544,11 +555,11 @@ plt.show()
 
 
 ![xcomparison](figures/06_icpRMSE_paths.png)
-*Figure: Smoothed root-mean-squared error measurements after ICP alignment for two different WT datasets.
+*Figure 12: Smoothed root-mean-squared error measurements after ICP alignment for two different WT datasets.
 The paths represent AtoB alignment (blue), BtoA alignment (orange), and the result of a simple dynamic time warping implementation (purple).*
 
 ![xcomparison](figures/07_icpRMSE_time.png)
-*Figure: The average root-mean-squared mismatch at each timepoint along the AtoB and BtoA paths show that cross-shape variation rises slightly over time.*
+*Figure 13: The average root-mean-squared mismatch at each timepoint along the AtoB and BtoA paths show that cross-shape variation rises slightly over time.*
 
 
 ___
@@ -564,7 +575,7 @@ expected_rmse_A = np.array(mean_spacing_A) / np.sqrt(2)
 expected_rmse_B = np.array(mean_spacing_B) / np.sqrt(2)
 ```
 ![xcomparison](figures/08_icpRMSE_baseline.png)
-*Figure: The expected baseline ICP error from finite sampling of the meshes lies far below the measured values.*
+*Figure 14: The expected baseline ICP error from finite sampling of the meshes lies far below the measured values.*
 
 
 
@@ -595,7 +606,7 @@ plotter.show()
 ```
 
 ![xcomparison](figures/06_overlay_024.png)
-*Figure: Spatial alignment of two WT midguts at an example timepoint.*
+*Figure 15: Spatial alignment of two WT midguts at an example timepoint.*
 
 
 ___
@@ -632,7 +643,7 @@ meshA_t.transform(T, inplace=True)
 color_mesh_by_distance(meshA_t, meshB, transform=None)
 ```
 ![xcomparison](figures/06_dist2mesh.png)
-*Figure: Distance of one mesh from another at an example matched timepoint.*
+*Figure 16: Distance of one mesh from another at an example matched timepoint.*
 
 
 ### 11b. Batch Distance Coloring and Export
@@ -763,7 +774,7 @@ plt.show()
 ```
 
 ![xcomparison](figures/10_xcomparison.png)
-*Figure: Comparing the distance between mesh pairs within and across groups (with the Myo1C OE case inverted L<->R).*
+*Figure 17: Comparing the distance between mesh pairs within and across groups (with the Myo1C OE case inverted L<->R).*
 
 This figure provides a quantitative summary of dynamic shape variability under genetic or experimental perturbation. How do you interpret these results?
 
