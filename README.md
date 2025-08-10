@@ -46,7 +46,7 @@ $ conda env create -f environment.yml
 ![midgut](figures/00_setup1.jpg)
 *Figure 1: Setting up in PyCharm.*
 
-![midgut](figures/00_setup1.jpg)
+![midgut](figures/00_setup2.jpg)
 *Figure 2: Running this module in PyCharm.*
 
 ### 0a. Python
