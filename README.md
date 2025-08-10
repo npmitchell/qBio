@@ -22,21 +22,22 @@ When you open PyCharm for the first time, create a new project: choose the folde
 `wildtype` and `bynGAL4_UASMyo1C` data live (see Figure 1B). 
 
 Then configure a Python interpreter. Select or create an interpreter that uses Python 3.10 — 
-this version is required for the tutorials in this course. If no interpreter is available, click 
+this version is required for this tutorial. If no interpreter is available, click 
 “Add Interpreter” and choose a Virtualenv, then select Python 3.10 
 as the base interpreter during setup (you may need to install it, see Figure 1C).
-If you are experienced with python, feel free to use a Conda Environment and create a base interpreter 
-from python 3.10. 
-Once your project is open, open organ_geometry.py. At the top, some of the modules will be underlined in red since they are not installed.
-Hover over one and click `Install all missing packages` (see Figure 1D). Then close organ_geometry.py and open the
-Python Console using the top icon in the bottom left (see Figure 2).
+
+
+*Default method:* Once your project is open, open `organ_geometry.py`. At the top, some of the modules will be underlined in red since they are not installed.
+Hover over one and click `Install all missing packages` (see Figure 1D). Then close `organ_geometry.py` and open the
+Python Console using the top icon in the bottom left (see arrowhead in Figure 2).
 Now you can copy-paste snippets of code into the Python Console to run them (note the copy icon circled in Figure 2).
-If you see an error like ModuleNotFoundError for any reason while playing with the code, click the red light 
-bulb or go to Settings > Python Interpreter to install the missing package 
-(or use conda install <package-name> in the terminal if you are using a Conda environment). 
+If you see an error like `ModuleNotFoundError` for any reason while playing with the code, click the red light 
+bulb or go to Settings > Python Interpreter to install the missing package. 
 That’s it — you’re ready to start coding in Python!
 
-*Note:* For Conda users, there is a .yml file included that will load up your virtual environment 
+
+*Conda method for experienced students only:* If you are experienced with python, feel free to use a Conda Environment and create a base interpreter 
+from python 3.10. For Conda users, there is a .yml file included that will load up your virtual environment 
 with what you need with:
 ```
 $ conda env create -f environment.yml
