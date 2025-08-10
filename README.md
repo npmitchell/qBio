@@ -4,9 +4,8 @@
 
 This tutorial introduces some core concepts in scientific 
 programming and shape analysis using Python. We'll explore 
-how to represent, manipulate, and compare 2D and 3D shapes 
-using triangulated meshes, with a focus on biological 
-applications. You will learn how to build meshes from scratch, 
+how to analyze and compare embryonic organ shapes 
+using triangulated meshes. You will learn how to build meshes from scratch, 
 analyze them for correctness, and register two shapes using 
 Iterative Closest Point (ICP) alignment. 
 The notebook is intended for early-stage graduate students with no serious coding experience. 
