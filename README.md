@@ -78,10 +78,10 @@ Throughout this module, we’ll use these data structures to work with 2D and 3D
 During development, tissues integrate mechanical and biochemical signals to drive 
 organ-scale geometric transformations. 
 Left-right symmetry breaking is a fundamental feature of organ morphogenesis 
-that is crucial for function. 
+that is crucial for organ function. 
 While left-right asymmetric genetic patterning of the early embryonic body plan 
 can trickle down to influence organ scale asymmetries, there is also a role for 
-cell-intrinsic processes: cells themselves break left-right symmetry through cytoskeletal activity. 
+cell-intrinsic processes: cells themselves break left-right symmetry through cytoskeletal chirality. 
 Remarkably, tuning the concentration of certain molecular motors such as members
 of the unconventional myosin 1 protein family can invert organ chirality across 
 vertebrates and invertebrates alike, but we currently lack a physical 
@@ -94,8 +94,14 @@ We will ask: to what extent are the guts of wild-type and embryos with myosin 1C
 
 The data you are working with was taken from live, multiview lightsheet microscopy imaging of 
 the midgut across ~2.5 hrs of development.
-We used computer vision tools (Mitchell & Cislo, 2023) to extract the tissue surface over time.
-Here you are presented with these mesh triangulations. 
+We used computer vision tools (Mitchell & Cislo, *Nature Methods* 2023) to extract the tissue surface over time.
+Briefly, we trained a two-stage 3D pixel classifier (iLastik autocontext workflow) to label the pixels of the endoderm and yolk as one probability channel and the muscle layer as another, 
+then identified a 3D segmentation of the gut. 
+The segmentation minimized an energy functional with surface tension, pressure, and attachment terms (see Active Contours Without Edges, 
+see Márquez-Neila et al, *IEEE Trans Pattern Anal Mach Intell
+.* 2014 and Chan & Vese, *IEEE Transactions on Image Processing* 2001). 
+Marching Cubes identified the segmentation's surface as a triangulation, which we then smoothed with a Poisson disk reconstruction and Laplacian filters.
+Here you are presented with the resulting mesh triangulations. 
 
 ![midgut](figures/00_gut.jpg)
 *Figure 3: Multiview lightsheet imaging and computer vision tools enable analysis of chiral shape changes in gut morphogenesis.*
@@ -151,7 +157,7 @@ m.plot(show_edges=True)
 How is this defined? It has vertices and faces. A face connects three vertices. 
 Because the faces are triangles, this is a *triangulation*.
 
-Open up `bunny.ply` in a text editor. See how it has vertices and faces defined. 
+Open up `bunny.ply` in a text editor. See how it has vertices and faces defined (Figure 4). 
 
 ### 2b. A Single Triangle
 This is the simplest mesh, made of 3 points and 1 triangle.
@@ -354,7 +360,7 @@ else:
     print("Found inward-facing faces at indices:")
     print(inward_facing)
 ```
-Concept check: This works for a cube. Would it work for a more complex shape? Provide a simple example that fails, and verify this with code.
+Concept check: This works for a cube. Would it work for a more complex shape (ex the Stanford bunny)? Provide a simple example that fails, and verify this with code.
 
 
 ## 3c. Advanced checks
