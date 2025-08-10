@@ -17,7 +17,7 @@ ___
 To begin working with Python code, we recommend using PyCharm, a free, user-friendly code editor. 
 First, download PyCharm Community Edition and install it on your computer following the instructions here:
 `https://www.jetbrains.com/help/pycharm/installation-guide.html`. 
-Also download the data Box folders `wildtype` and `bynGAL4_UASMyo1C` to the same place where you have this code cloned (see Figure 1A). 
+Also download the data folders from Box (`wildtype` and `bynGAL4_UASMyo1C`) and place them in the same place where you have the tutorial code cloned (see Figure 1A). 
 When you open PyCharm for the first time, create a new project: choose the folder where this tutorial's code resides -- same place as where the 
 `wildtype` and `bynGAL4_UASMyo1C` data live (see Figure 1B). 
 
