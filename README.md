@@ -1,5 +1,3 @@
-from mesh_part1 import ssfactor
-
 # Mesh Triangulations for Biological Shape Analysis
 
 # Part 1: Intro to python and mesh triangulations
@@ -261,7 +259,9 @@ ax.set_box_aspect([1, 1, 1])
 plt.title('3D Triangulation of a Cube')
 plt.show()
 ```
+
 Try moving it around.
+
 ![3D Cube](figures/03_cube.png)
 *Figure 7: Triangulated cube from 8 vertices and 12 triangles.*
 
@@ -725,10 +725,6 @@ batch_icp_overlay(dirA, dirB, filesA, filesB, AtoB,
                   Alabel=dirA, Blabel=dirB)
 ```
 
-![overlay](figures/06_overlay_024.png)
-*Figure 17: Spatial alignment of two WT midguts at an example timepoint.*
-
-
 ___
 
 ## 11. Measuring the spatial pattern of misalignment between samples
@@ -747,9 +743,10 @@ batch_color_by_distance(dirA, dirB, filesA, filesB, AtoB,
                         clim=clims, flipy=flipy)
 ```
 
-
-![exdistancemesh](figures/08_example_mesh_by_distance.png)
+![overlay](figures/06_overlay_024.png)
 *Figure 17: Spatial alignment of two WT midguts at an example timepoint.*
+
+
 
 ## 12. Advanced: PCA-based smoothing as an alternative to dynamic time warping
 Dynamic time warping (DTW) gives a monotone, potentially jagged A↔B mapping (AtoB, BtoA), but sometimes lies "outside" of either set (AtoB or BtoA).
@@ -764,7 +761,9 @@ a smoothed trajectory incorporating contributions from both AtoB and BtoA.
 # --------------------------------------
 smoothed_curve = pca_smooth_correspondences(tpsA, tpsB, AtoB, BtoA)
 ```
+
 We can view the results as usual.
+
 ```python
 plt.figure()
 plt.imshow(icp_smooth, cmap='inferno', extent=[tpsB[0], tpsB[-1], tpsA[0], tpsA[-1]],
@@ -784,7 +783,8 @@ plt.show()
 ```
 
 ![ICP_paths](figures/09_icpPCA_path.png)
-*Figure 14: PCA-based smoothing (red curve) offers an alternative for reconciling the AtoB and BtoA timeline matching differences.*
+*Figure 18: PCA-based smoothing (red curve) offers an alternative for reconciling the AtoB and BtoA timeline matching differences.*
+
 ___
 
 ## 13. Final Export
@@ -929,7 +929,7 @@ print(f"OE internal std: {np.std(oe_err):.3f}")
 ```
 
 ![xcomparison](figures/10_xcomparison.png)
-*Figure 18: Comparing the distance between mesh pairs within and across groups (with the Myo1C OE case inverted L<->R).*
+*Figure 19: Comparing the distance between mesh pairs within and across groups (with the Myo1C OE case inverted L<->R).*
 
 This figure provides a quantitative summary of dynamic shape variability under genetic or experimental perturbation. How do you interpret these results?
 
