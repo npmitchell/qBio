@@ -1,3 +1,5 @@
+from mesh_part1 import ssfactor
+
 # Mesh Triangulations for Biological Shape Analysis
 
 # Part 1: Intro to python and mesh triangulations
@@ -214,7 +216,7 @@ plt.show()
 ```
 
 ![Triangulated Square](figures/02_square.png)
-*Figure 2: A square composed of two triangles.*
+*Figure 6: A square composed of two triangles.*
 
 ### 2d. A Triangulated Cube in 3D
 Now we move to 3D, building a cube from 8 corner points and 12 triangles.
@@ -261,7 +263,7 @@ plt.show()
 ```
 Try moving it around.
 ![3D Cube](figures/03_cube.png)
-*Figure 6: Triangulated cube from 8 vertices and 12 triangles.*
+*Figure 7: Triangulated cube from 8 vertices and 12 triangles.*
 
 
 
@@ -386,7 +388,7 @@ m.plot(show_edges=True)
 ```
 
 ![Microscopy Mesh](figures/04_gut.png)
-*Figure 7: Example mesh from level sets and Poisson disk surface reconstruction.*
+*Figure 8: Example mesh from level sets and Poisson disk surface reconstruction.*
 
 ___
 
@@ -420,7 +422,7 @@ meshA_t, T = align_mesh_icp(meshA, meshB, ssfactor=ssfactor)
 
 ```
 ![Aligned Guts](figures/05_gutAlign.png)
-*Figure 8: Two different embryos' midguts, captured at a similar stage of development, aligned in space.*
+*Figure 9: Two different embryos' midguts, captured at a similar stage of development, aligned in space.*
 
 Here `T` is a 4×4 NumPy array representing the optimal rigid transform.
 Advanced concept check: how are data stored inside `T`? Hint: There is a matrix encoding rotations and scaling, but also a translation (dx, dy, dz). Which columns/rows are which? 
@@ -432,8 +434,8 @@ We measure how close the aligned mesh is to the target and color it by the dista
 color_mesh_by_distance(meshA_t, meshB, transform=None)
 ```
 
-![Distance between guts](figures/06_dist2gutmesh.png)
-*Figure 9: The Euclidean distance between two gut meshes.*
+![Distance between guts](figures/05_dist2gutmesh.png)
+*Figure 10: The Euclidean distance between two gut meshes.*
 
 Under the hood, in another function I put in `organ_geometry.py`, we computed the distance to the nearest meshB vertex for each vertex in meshA.
 Then we converted those distances to a color array, a NumPy array with shape `(N, 3)` for RGB values.
@@ -464,8 +466,8 @@ meshA_t, T = align_mesh_icp(meshA, meshB, ssfactor=ssfactor, Alabel="WT", Blabel
 dists, plotter = color_mesh_by_distance(meshA_t, meshB, transform=None)
 plotter.show()
 ```
-![Distance between guts](figures/06b_wtoe.png)
-*Figure 10: Overexpression of Myo1C dramatically changes the gut shape.*
+![Distance between guts](figures/05b_wtoe.png)
+*Figure 11: Overexpression of Myo1C dramatically changes the gut shape.*
 
 
 Now let's flip one across the left-right axis and compare them again. 
@@ -484,8 +486,8 @@ dists, plotter = color_mesh_by_distance(meshA_t, meshB, transform=None)
 plotter.show()
 ```
 
-![Distance between guts](figures/06b_wtoe_mirrored.png)
-*Figure 11: Overexpression of Myo1C nearly mirrors (inverts along the left-right axis) the gut shape.
+![Distance between guts](figures/05b_wtoe_mirrored.png)
+*Figure 12: Overexpression of Myo1C nearly mirrors (inverts along the left-right axis) the gut shape.
 Pronounced residual mismatch is visible in the anterior chamber (arrowhead).*
 
 
@@ -504,15 +506,22 @@ We begin by importing libraries and setting parameters. These include which expe
 ```python
 from organ_geometry import *
 import pandas as pd
-import numpy as np
-import os
 
 # Main parameters
-step = 7          # downsampling step in timepoints
-ssfactor = 10      # spatial subsampling factor for ICP
-conditions = ['wt', 'oe', 'x1', 'x2', 'x3', 'x4']  # comparison pairs
-wt_oe = 'wt'
-outdir = 'results'
+step = 3           # downsampling step in units of timepoints 
+                   # (higher will run faster and consider fewer timepoints)
+ssfactor = 10      # spatial subsampling factor for ICP 
+                   # (higher is faster but potentially less accurate)
+wt_oe = 'wt'       # comparison will initially be between two WT datasets
+outdir = 'results' # where to store output on disk
+dt = 2             # timestep in minutes between adjacent timepoints (this should not be changed, taken from experiments)
+
+if not os.path.exists(outdir):
+    os.mkdir(outdir)
+
+dirA = "wildtype/20240527/"
+dirB = "wildtype/20240531/"
+flipy = False
 ```
 
 ___
@@ -522,21 +531,66 @@ ___
 This section performs pairwise shape comparison using ICP to align all meshes from `dirA` to those in `dirB`. ICP produces a matrix of matching errors, which we smooth and use to infer a time-mapping between the two datasets.
 
 ```python
+
 # Collect all PLY files and extract their timepoint numbers
-filesA = natsorted([f for f in os.listdir(dirA) if f.endswith(".ply")])[::step]
-filesB = natsorted([f for f in os.listdir(dirB) if f.endswith(".ply")])[::step]
+# List and sort .ply files
+filesA = []
+for f in os.listdir(dirA):
+    if f.endswith(".ply"):
+        filesA.append(f)
+
+filesA = natsorted(filesA)[::step]
+
+# Do the same for dirB
+filesB = []
+for f in os.listdir(dirB):
+    if f.endswith(".ply"):
+        filesB.append(f)
+
+filesB = natsorted(filesB)[::step]
+
+# Extract timepoints from filenames
 tpsA = np.array([extract_tp(f) for f in filesA])
 tpsB = np.array([extract_tp(f) for f in filesB])
 
-# Run ICP and match timepoints using dynamic time warping
-icp_raw = build_icp_cost_matrix(dirA, dirB, ssfactor, step, flipy)
+# Compute ICP RMSE
+icp_raw = build_icp_cost_matrix(dirA, dirB, ssfactor=ssfactor, step=step, flipy=flipy)
 icp_smooth = smooth_icp_matrix(icp_raw)
-AtoB, BtoA = match_timepoints(icp_smooth)
-path, _, _ = dtw_match(icp_smooth)
-path = np.array(path)
-path_tps = np.array([tpsA[path[:,0]], tpsB[path[:,1]]]).T
 ```
 
+Now plot the result.
+
+```python
+ig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+im1 = ax1.imshow(icp_raw, cmap='inferno')
+ax1.set_title("Timeline comparison via ICP")
+ax1.set_xlabel("Time B")
+ax1.set_ylabel("Time A")
+fig.colorbar(im1, ax=ax1, label="ICP Error")
+
+im2 = ax2.imshow(icp_smooth, cmap='inferno')
+ax2.set_title("Timeline comparison via ICP")
+ax2.set_xlabel("Time B")
+ax2.set_ylabel("Time A")
+fig.colorbar(im2, ax=ax2, label="Smoothed ICP Error")
+
+plt.show()
+```
+
+![xcomparison](figures/06_icpRMSE.png)
+*Figure 13: Raw and smoothed root-mean-squared error measurements after ICP alignment for two different WT datasets.*
+
+Match timepoints in this matrix by finding row and column minima.
+
+```python
+# Match timepoints
+AtoB, BtoA = match_timepoints(icp_smooth)
+
+# Advanced: using dynamic time warping, we optimize with monotonicity
+[path, _, _] = dtw_match(icp_smooth)
+path = np.array(path)
+path_tps = np.array([tpsA[path[:, 0]], tpsB[path[:, 1]]]).T
+```
 ___
 
 ## 8. Visualizing Timepoint Matching
@@ -544,23 +598,51 @@ ___
 Plot the smoothed ICP error matrix, with the dynamic time warping path overlayed in red. This helps visualize which timepoints from A match which timepoints from B.
 
 ```python
+plt.figure()
 plt.imshow(icp_smooth, cmap='inferno')
-plt.plot(path[:,1], path[:,0], 'r.-')
-plt.title("Timepoint Alignment (DTW)")
+plt.plot(path[:,1], path[:, 0], '.-', lw=2, color='tab:purple')
+plt.plot(AtoB, np.arange(len(tpsA)), '.-', lw=2, color='tab:blue')
+plt.plot(np.arange(len(tpsB)), BtoA, '.-', lw=2, color='tab:orange')
+plt.title("Timepoint Matching")
 plt.xlabel("Time B")
 plt.ylabel("Time A")
 plt.colorbar(label="ICP Error")
+plt.axis('equal')
 plt.tight_layout()
 plt.show()
 ```
 
 
 ![xcomparison](figures/06_icpRMSE_paths.png)
-*Figure 12: Smoothed root-mean-squared error measurements after ICP alignment for two different WT datasets.
-The paths represent AtoB alignment (blue), BtoA alignment (orange), and the result of a simple dynamic time warping implementation (purple).*
+*Figure 14: The paths represent AtoB alignment (blue), BtoA alignment (orange), and the result of a simple dynamic time warping implementation (purple).*
 
-![xcomparison](figures/07_icpRMSE_time.png)
-*Figure 13: The average root-mean-squared mismatch at each timepoint along the AtoB and BtoA paths show that cross-shape variation rises slightly over time.*
+```python
+# Plot the result
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+
+# === Subplot 1: A→B ===
+ax1.plot(tpsA, icp_raw[np.arange(len(tpsA)), AtoB], 'o--', label='A→B raw', color='tab:blue')
+ax1.plot(tpsA, icp_smooth[np.arange(len(tpsA)), AtoB], 'o-', label='A→B smoothed', color='tab:blue')
+# ax1.plot(path_tps[:, 0], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (A→B)', color='tab:blue')
+ax1.set_xlabel("Timepoint A")
+ax1.set_ylabel("ICP Error")
+ax1.set_title("A→B Matching")
+ax1.grid(True)
+ax1.legend()
+
+# === Subplot 2: B→A ===
+ax2.plot(tpsB, icp_raw[BtoA, np.arange(len(tpsB))], 'o--', label='B→A raw', color='tab:orange')
+ax2.plot(tpsB, icp_smooth[BtoA, np.arange(len(tpsB))], 'o-', label='B→A smoothed', color='tab:orange')
+# ax2.plot(path_tps[:, 1], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (B→A)', color='tab:orange')
+ax2.set_xlabel("Timepoint B")
+ax2.set_title("B→A Matching")
+ax2.grid(True)
+ax2.legend()
+plt.savefig(os.path.join(outdir, f'TPMatching_AtoB_BtoA_{wt_oe}_step{step}_ss{ssfactor}.png'))
+plt.show()
+```
+![xcomparison](figures/07_icpRMSE_curves.png)
+*Figure 15: The average root-mean-squared mismatch at each timepoint along the AtoB and BtoA paths show that cross-shape variation rises slightly over time.*
 
 
 ___
@@ -570,13 +652,59 @@ ___
 We estimate the smallest error we can expect from subsampling, based on average spacing between points. This gives a baseline to interpret ICP error values.
 
 ```python
-mean_spacing_A = [mean_point_spacing(pv.read(os.path.join(dirA, f)).points[::ssfactor]) for f in filesA]
-mean_spacing_B = [mean_point_spacing(pv.read(os.path.join(dirB, f)).points[::ssfactor]) for f in filesB]
-expected_rmse_A = np.array(mean_spacing_A) / np.sqrt(2)
-expected_rmse_B = np.array(mean_spacing_B) / np.sqrt(2)
+mean_spacing_A = []
+mean_spacing_B = []
+
+for fA in filesA:
+    # Load and subsample point cloud
+    vA = pv.read(os.path.join(dirA, fA)).points[::ssfactor]
+    # Compute and store mean spacing
+    mean_spacing_A.append(mean_point_spacing(vA))
+
+for fB in filesB:
+    # Load and subsample point cloud
+    vB = pv.read(os.path.join(dirB, fB)).points[::ssfactor]
+    # Compute and store mean spacing
+    mean_spacing_B.append(mean_point_spacing(vB))
+
+mean_spacing_A = np.array(mean_spacing_A)
+mean_spacing_B = np.array(mean_spacing_B)
+expected_rmse_A = mean_spacing_A / np.sqrt(2)
+expected_rmse_B = mean_spacing_B / np.sqrt(2)
 ```
+
+Now let's plot what this looks like.
+
+```python
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+
+# === Subplot 1: A→B ===
+ax1.plot(tpsA, icp_raw[np.arange(len(tpsA)), AtoB], 'o--', label='A→B raw', color='tab:blue')
+ax1.plot(tpsA, icp_smooth[np.arange(len(tpsA)), AtoB], 'o-', label='A→B smoothed', color='tab:blue')
+ax1.plot(tpsA, expected_rmse_A, '.--', label='B→A baseline', color='tab:blue')
+# ax1.plot(path_tps[:, 0], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (A→B)', color='tab:blue')
+ax1.set_xlabel("Timepoint A")
+ax1.set_ylabel("ICP Error")
+ax1.set_title("A→B Matching")
+ax1.grid(True)
+ax1.legend()
+
+# === Subplot 2: B→A ===
+ax2.plot(tpsB, icp_raw[BtoA, np.arange(len(tpsB))], 'o--', label='B→A raw', color='tab:orange')
+ax2.plot(tpsB, icp_smooth[BtoA, np.arange(len(tpsB))], 'o-', label='B→A smoothed', color='tab:orange')
+ax2.plot(tpsB, expected_rmse_B, '.--', label='A→B baseline', color='tab:orange')
+# ax2.plot(path_tps[:, 1], icp_smooth[path[:, 0], path[:, 1]], '*-', label='DTW smoothed (B→A)', color='tab:orange')
+ax2.set_xlabel("Timepoint B")
+ax2.set_title("B→A Matching")
+ax2.grid(True)
+ax2.legend()
+plt.savefig(os.path.join(outdir, f'TPMatching_AtoB_BtoA_expectedRMSE_{wt_oe}_step{step}_ss{ssfactor}.png'))
+plt.show()
+```
+
+
 ![xcomparison](figures/08_icpRMSE_baseline.png)
-*Figure 14: The expected baseline ICP error from finite sampling of the meshes lies far below the measured values.*
+*Figure 16: The expected baseline ICP error from finite sampling of the meshes lies far below the measured values.*
 
 
 
@@ -584,86 +712,81 @@ ___
 
 ## 10. Visualize Aligned Meshes
 
-This section loads a matching pair of meshes, runs ICP alignment, and overlays them to assess alignment quality. We apply a pre-alignment translation to center the shapes.
+This section loads each matching pair of meshes, re-runs ICP alignment, and overlays them to assess alignment quality. We apply a pre-alignment translation to center the shapes, which improves optimization.
 
 ```python
-# Pick one timepoint to visualize
-tp2view = int(np.median(tpsA))
-tidx = np.argmin(np.abs(tpsA - tp2view))
-meshA = pv.read(os.path.join(dirA, filesA[tidx]))
-meshB = pv.read(os.path.join(dirB, filesB[AtoB[tidx]]))
-
-# Align and overlay
-vA = meshA.points[::ssfactor]; vB = meshB.points[::ssfactor]
-shift = vB.mean(0) - vA.mean(0)
-meshA_t = meshA.translate(shift, inplace=False)
-T, _ = compute_icp_transform_o3d(vA + shift, vB)
-meshA_t.transform(T, inplace=True)
-
-plotter = pv.Plotter()
-plotter.add_mesh(meshA_t, color='crimson', opacity=0.6)
-plotter.add_mesh(meshB, color='dodgerblue', opacity=0.6)
-plotter.show()
+# --------------------------------------
+# Batch overlays
+# --------------------------------------
+xyzlim = compute_global_bounds(dirA, dirB, filesA, filesB)
+batch_icp_overlay(dirA, dirB, filesA, filesB, AtoB,
+                  outdir=os.path.join(outdir, f"icp_overlay_{wt_oe}_step{step}_ss{ssfactor}"),
+                  ssfactor=ssfactor, xyzlim=xyzlim, flipy=flipy,
+                  Alabel=dirA, Blabel=dirB)
 ```
 
 ![xcomparison](figures/06_overlay_024.png)
-*Figure 15: Spatial alignment of two WT midguts at an example timepoint.*
+*Figure 17: Spatial alignment of two WT midguts at an example timepoint.*
 
 
 ___
 
 ## 11. Measuring the spatial pattern of misalignment between samples
 
-### 11a. Distance coloring
-Let's now color a midgut mesh by how far away it is from the mesh in the 
-other sample at the matched timepoint.
-
-```python
-# --------------------------------------
-# Color by distance between the two
-# --------------------------------------
-# Load meshes
-tp2view = int(np.median(tpsA))
-tidx = np.argmin(np.abs(tpsA - tp2view))
-
-meshA = pv.read(os.path.join(dirA, filesA[tidx]))
-meshB = pv.read(os.path.join(dirB, filesB[AtoB[tidx]]))
-
-# Subsample point clouds for ICP
-vA = meshA.points[::ssfactor]
-vB = meshB.points[::ssfactor]
-centroid_shift = vB.mean(axis=0) - vA.mean(axis=0)
-meshA_t = meshA.translate(centroid_shift, inplace=False)
-vA += centroid_shift
-
-# ICP transform and application
-T, _ = compute_icp_transform_o3d(vA, vB)
-meshA_t.transform(T, inplace=True)
-
-# Show distance coloring
-color_mesh_by_distance(meshA_t, meshB, transform=None)
-```
-![xcomparison](figures/06_dist2mesh.png)
-*Figure 16: Distance of one mesh from another at an example matched timepoint.*
-
-
-### 11b. Batch Distance Coloring and Export
-
 We loop over all timepoints and visualize distance between each aligned mesh pair. The color intensity shows how well two shapes match locally.
+The output is saved to the `results` directory.
 
 ```python
-xyzlim = compute_global_bounds(dirA, dirB, filesA, filesB)
-batch_icp_overlay(dirA, dirB, filesA, filesB, AtoB, outdir=f"icp_overlay_{wt_oe}",
-                  ssfactor=ssfactor, xyzlim=xyzlim, flipy=flipy)
-
+# --------------------------------------
+# Batch color the meshes by mismatch distance
+# --------------------------------------
+clims = (0, 20)
 batch_color_by_distance(dirA, dirB, filesA, filesB, AtoB,
-                        outdir=f"colored_distance_{wt_oe}",
-                        ssfactor=ssfactor, xyzlim=xyzlim, flipy=flipy, clim=(0, 20))
+                        outdir=os.path.join(outdir, f"colored_distance__{wt_oe}_step{step}_ss{ssfactor}"),
+                        ssfactor=ssfactor, xyzlim=xyzlim,
+                        clim=clims, flipy=flipy)
 ```
+
+
+![xcomparison](figures/08_example_mesh_by_distance.png)
+*Figure 17: Spatial alignment of two WT midguts at an example timepoint.*
+
+## 12. Advanced: PCA-based smoothing as an alternative to dynamic time warping
+Dynamic time warping (DTW) gives a monotone, potentially jagged A↔B mapping (AtoB, BtoA), but sometimes lies "outside" of either set (AtoB or BtoA).
+Here we instead takes the matched timepoints between two series and smooths their relationship
+by projecting them into PCA space, smoothing along the orthogonal component, and map back to reconstruct 
+a smoothed trajectory incorporating contributions from both AtoB and BtoA.
+
+```python
+# --------------------------------------
+# Advanced: an alternative to DTW is using both AtoB and
+# BtoA to create consensus in PCA1 space.
+# --------------------------------------
+smoothed_curve = pca_smooth_correspondences(tpsA, tpsB, AtoB, BtoA)
+```
+We can view the results as usual.
+```python
+plt.figure()
+plt.imshow(icp_smooth, cmap='inferno', extent=[tpsB[0], tpsB[-1], tpsA[0], tpsA[-1]],
+           origin='lower', aspect='auto')
+plt.plot(path[:,1], path[:, 0], '.-', lw=2, color='tab:purple')
+plt.plot(tpsB[AtoB], tpsA, '.-', lw=2, color='tab:blue')
+plt.plot(tpsB, tpsA[BtoA], '.-', lw=2, color='tab:orange')
+plt.plot(smoothed_curve[:, 1], smoothed_curve[:, 0], 'r.-', lw=2)
+plt.title("PCA-Smoothed Timepoint Matching")
+plt.xlabel("Time B")
+plt.ylabel("Time A")
+plt.colorbar(label="ICP Error")
+plt.axis('equal')
+plt.tight_layout()
+plt.savefig(os.path.join(outdir, f'TPMatching_PCASm_{wt_oe}_step{step}_ss{ssfactor}.png'))
+plt.show()
+```
+
 
 ___
 
-## 12. Final Export
+## 13. Final Export
 
 We can use a `pandas` dataFrame for saving the result. This is like a table and we save 
 the data as a csv. 
@@ -695,16 +818,16 @@ df_icp_B.to_csv(f"icp_error_BtoA_{wt_oe}_step{step}_ss{ssfactor}.csv", index=Fal
 You can save numeric results as `.npy` arrays for further analysis. These files store ICP matrices, expected noise floors, and timepoint mappings.
 
 ```python
-np.save(f"icp_raw_{wt_oe}.npy", icp_raw)
-np.save(f"icp_smooth_{wt_oe}.npy", icp_smooth)
-np.save(f"expected_rmse_A_{wt_oe}.npy", expected_rmse_A)
-np.save(f"expected_rmse_B_{wt_oe}.npy", expected_rmse_B)
-np.save(f"path_{wt_oe}.npy", [path, path_tps])
+np.save(os.path.join(outdir, f"icp_raw_{wt_oe}_step{step}_ss{ssfactor}.npy"), icp_raw)
+np.save(os.path.join(outdir, f"icp_smooth_{wt_oe}_step{step}_ss{ssfactor}.npy"), icp_smooth)
+np.save(os.path.join(outdir, f"expected_rmse_A_{wt_oe}_step{step}_ss{ssfactor}.npy"), expected_rmse_A)
+np.save(os.path.join(outdir, f"expected_rmse_B_{wt_oe}_step{step}_ss{ssfactor}.npy"), expected_rmse_B)
+np.save(os.path.join(outdir, f"path_{wt_oe}_step{step}_ss{ssfactor}.npy"), [path, path_tps])
 ```
 
 ___
 
-## 13. Cross-Condition Comparison
+## 14. Cross-Condition Comparison
 
 Run the above for different conditions `'wt', 'oe', 'x1', 'x2', 'x3', 'x4'`. 
 We compare how ICP errors change across conditions. This can reveal if shape dynamics differ significantly between WT and perturbed embryos.
@@ -745,37 +868,67 @@ for i, wt_oe in enumerate(conditions):
     ...
 
 
+# ------------------------------------------------------------
+# Compare difference between WT and OE against
+# diff within WT and within OE
+# ------------------------------------------------------------
+
 conds = ['wt', 'oe', 'x1', 'x2', 'x3', 'x4']
 icp_dict = {}
+
 for cond in conds:
-    df = pd.read_csv(f"icp_error_AtoB_{cond}_step{step}_ss{ssfactor}.csv")
-    icp_dict[cond] = {"tps": df["tpsA"].values, "error": df["icpSmoothA"].values}
+    fname = os.path.join(outdir, f"icp_error_AtoB_{cond}_step{step}_ss{ssfactor}.csv")
+    df = pd.read_csv(fname)
+    icp_dict[cond] = {
+        "tps": df["tpsA"].values,
+        "error": df["icpSmoothA"].values
+    }
 
-# Interpolate onto common timepoints
-tps = np.intersect1d(icp_dict['wt']['tps'], icp_dict['oe']['tps'])
-for d in icp_dict.values():
-    m = np.isin(d["tps"], tps)
-    d["tps"], d["error"] = d["tps"][m], d["error"][m]
+# Align on common timepoints
+common_tps = np.intersect1d(np.intersect1d(np.intersect1d(icp_dict['wt']['tps'], icp_dict['oe']['tps']),
+                                           np.intersect1d(icp_dict['x1']['tps'], icp_dict['x2']['tps'])),
+                            np.intersect1d(icp_dict['x3']['tps'], icp_dict['x4']['tps']))
+for key in icp_dict:
+    mask = np.isin(icp_dict[key]["tps"], common_tps)
+    icp_dict[key]["tps"] = icp_dict[key]["tps"][mask]
+    icp_dict[key]["error"] = icp_dict[key]["error"][mask]
 
-# Compare
-wt_err, oe_err = icp_dict['wt']['error'], icp_dict['oe']['error']
-x_errs = np.stack([icp_dict[f"x{i}"]["error"] for i in range(1,5)])
+# Stack WT vs OE error
+wt_err = icp_dict['wt']["error"]
+oe_err = icp_dict['oe']["error"]
+tps = icp_dict['wt']["tps"]
 
-plt.plot(tps, wt_err, 'b.-', label='WT<->WT')
-plt.plot(tps, oe_err, 'r.-', label='OE<->OE')
-plt.plot(tps, x_errs.mean(0), 'k-', label='WT<->OE')
-plt.fill_between(tps, x_errs.mean(0)-x_errs.std(0), x_errs.mean(0)+x_errs.std(0), color='gray', alpha=0.3)
-plt.title("ICP Matching Error Across Conditions")
-plt.xlabel("Timepoint")
-plt.ylabel("RMSE")
+# Mean between-group difference
+diff_wtoe = np.abs(wt_err - oe_err)
+mean_diff = np.mean(diff_wtoe)
+
+# Stack X1–X4 errors
+x_errors = np.stack([icp_dict[f"x{i}"]["error"] for i in range(1, 5)])
+x_mean = np.mean(x_errors, axis=0)
+x_std = np.std(x_errors, axis=0)
+
+# Plot
+plt.figure(figsize=(10, 5))
+plt.plot(tps*dt, wt_err, 'b.-', label="WT↔WT")
+plt.plot(tps*dt, oe_err, 'r.-', label="OE↔OE")
+plt.plot(tps*dt, x_mean, 'k-', label="WT↔OE (mean x1–x4)")
+plt.fill_between(tps*dt, x_mean - x_std, x_mean + x_std, color='gray', alpha=0.3, label="WT↔OE ± std")
+plt.xlabel("reference time [min]")
+plt.ylabel("ICP RMSE (smoothed)")
+plt.title("Within- vs cross-ensemble ICP RMSE")
 plt.grid(True)
 plt.legend()
 plt.tight_layout()
+plt.savefig(os.path.join(outdir, 'cross_ensemble_RMSE.png'))
 plt.show()
+
+print(f"Mean WT↔OE diff: {mean_diff:.3f}")
+print(f"WT internal std: {np.std(wt_err):.3f}")
+print(f"OE internal std: {np.std(oe_err):.3f}")
 ```
 
 ![xcomparison](figures/10_xcomparison.png)
-*Figure 17: Comparing the distance between mesh pairs within and across groups (with the Myo1C OE case inverted L<->R).*
+*Figure 18: Comparing the distance between mesh pairs within and across groups (with the Myo1C OE case inverted L<->R).*
 
 This figure provides a quantitative summary of dynamic shape variability under genetic or experimental perturbation. How do you interpret these results?
 

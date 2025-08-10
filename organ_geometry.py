@@ -160,7 +160,7 @@ def build_icp_cost_matrix(dirA, dirB, ssfactor=10, step=1, preview=False, flipy=
     icp_cost = np.full((num_A, num_B), np.nan)
 
     for i, fA in enumerate(filesA):
-        print('Considering', fA)
+        print('Considering', fA, ' to ', filesB[0])
         meshA = pv.read(fA)
         vA = np.asarray(meshA.points)
         vA = subsample_vertices(vA, ssfactor)
@@ -609,7 +609,7 @@ def compute_global_bounds(dirA, dirB, filesA, filesB):
 
 def batch_color_by_distance(dirA, dirB, filesA, filesB, AtoB,
                             outdir="distance_colored", ssfactor=10,
-                            save_vtk=False, save_png=True, colormap="viridis",
+                            save_vtk=False, save_png=True, colormap="inferno",
                             xyzlim=None, clim=None, flipy=False):
     """
     For each A→B match, color A's mesh by distance to B after ICP alignment and save results.
